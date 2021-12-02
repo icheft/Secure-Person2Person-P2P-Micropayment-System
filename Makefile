@@ -10,7 +10,7 @@ ifeq ($(UNAME), Linux)
 CFLAGS=-pthread -lrt -lpthread
 endif
 
-client: client.c
+client: client.c client.h
 	$(CC) ./client.c $(CFLAGS) -o client
 bt: client_bt.c
 	$(CC) ./client_bt.c $(CFLAGS) -o bt

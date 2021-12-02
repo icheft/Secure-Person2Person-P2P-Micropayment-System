@@ -9,19 +9,42 @@
 #include <sys/types.h>
 #include <unistd.h>
 
-char name[20];
+char name[20]; // a name for each client
 int PORT;
 char IPaddress[20];
 
 int main(int argc, char const* argv[])
 {
+    switch (argc) {
+    case 1: {
+        printf("Please specify an IP address and a port number to connect to.\n");
+        printf("%s\n", man);
+        printf("Now running on default...\n");
+        // default
+        PORT = 8888;
+        char tmp_address[] = "127.0.0.1";
+        strcpy(IPaddress, tmp_address);
+        break;
+    }
+    case 2: {
+        printf("Please specify an IP address and a port number to connect to.\n");
+        printf("%s\n", man);
+        printf("Now running on default...\n");
+        // default
+        PORT = 8888;
+        char tmp_address[] = "127.0.0.1";
+        strcpy(IPaddress, tmp_address);
+        break;
+    }
+    case 3: {
+        strcpy(IPaddress, argv[1]);
+        PORT = atoi(argv[2]);
+        break;
+    }
+    default:
+        break;
+    }
 
-    printf("Enter name: ");
-    scanf("%s", name);
-    printf("Enter port number: ");
-    scanf("%d", &PORT);
-    printf("Enter IP address: ");
-    scanf("%s", IPaddress);
     int server_fd, new_socket, valread;
     struct sockaddr_in address;
     int k = 0;
@@ -39,8 +62,7 @@ int main(int argc, char const* argv[])
     address.sin_port = htons(PORT); /// 8888
 
     // Printed the server socket addr and port
-    printf("IP address is: %s\n", inet_ntoa(address.sin_addr));
-    printf("port is: %d\n", (int)ntohs(address.sin_port));
+    get_info(&address);
 
     if (bind(server_fd, (struct sockaddr*)&address, sizeof(address)) < 0) {
         perror("bind failed");
@@ -168,4 +190,10 @@ void receiving(int server_fd)
         if (k == (FD_SETSIZE * 2))
             break;
     }
+}
+
+void get_info(struct sockaddr_in* address)
+{
+    printf("IP address is: %s\n", inet_ntoa(address->sin_addr));
+    printf("port is: %d\n", (int)ntohs(address->sin_port));
 }
