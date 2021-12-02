@@ -1,0 +1,15 @@
+{
+    "files.associations": {
+        "*.cpp": "cpp",
+        "iostream": "cpp",
+        "stdio.h": "c",
+        "vector": "cpp",
+        "in.h": "c",
+        "socket.h": "c",
+        "cstdlib": "c",
+        "stdlib.h": "c",
+        "unistd.h": "c",
+        "inet.h": "c"
+    },
+    "cmake.configureOnOpen": true
+}

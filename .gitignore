@@ -1,5 +1,14 @@
 notice.pdf
 demo/*.mp4
+2021-Programming Assignment.pdf
+test/*.c
+test/*.cpp
+test/client
+test/p2p
+test/bt
+p2p
+bt
+client
 
 
 # Created by https://www.toptal.com/developers/gitignore/api/macos,linux,c++,qt,qtcreator,vim,latex,python,c,cmake,zsh
@@ -84,7 +93,7 @@ CMakeCache.txt
 CMakeFiles
 CMakeScripts
 Testing
-Makefile
+# Makefile
 cmake_install.cmake
 install_manifest.txt
 compile_commands.json
@@ -593,7 +602,7 @@ qrc_*.cpp
 ui_*.h
 *.qmlc
 *.jsc
-Makefile*
+# Makefile*
 *build-*
 *.qm
 *.prl
