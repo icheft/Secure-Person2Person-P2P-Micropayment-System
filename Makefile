@@ -3,15 +3,15 @@ CC=gcc
 UNAME := $(shell uname)
 
 ifeq ($(UNAME), Darwin)
-CFLAGS=-lpthread
+CFLAGS=-std=c++11 -lstdc++ -lpthread
 endif
 
 ifeq ($(UNAME), Linux)
-CFLAGS=-pthread -lrt -lpthread
+CFLAGS=-std=c++11 -lstdc++ -pthread -lrt -lpthread
 endif
 
-client: client.c client.h
-	$(CC) ./client.c $(CFLAGS) -o client
+client: client.cpp client.hpp
+	$(CC) ./client.cpp $(CFLAGS) -o client
 bt: client_bt.c
 	$(CC) ./client_bt.c $(CFLAGS) -o bt
 p2p: client_p2p.c
