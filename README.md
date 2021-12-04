@@ -4,9 +4,9 @@
 
 + [x] 向 Server 註冊(註冊時輸入名稱)。(register)
 + [x] 登入助教所提供 Server 端程式(填入使用者名稱、Port Number)。(port number)
-+ [ ] 向 Server 要最新的帳戶餘額、上線清單、Publickey 並接收 Server 端的回覆。 (list)
-4. 和其它 Client 執行轉帳功能 (不可透過 Server 端轉送)。(transaction)
-5. 進行離線動作前需主動告知 Server 端程式。(exit)
++ [x] 向 Server 要最新的帳戶餘額、上線清單、Publickey 並接收 Server 端的回覆。 (list)
++ [x] 和其它 Client 執行轉帳功能 (不可透過 Server 端轉送)。(transaction)
++ [x] 進行離線動作前需主動告知 Server 端程式。(exit)
 
 ## Trouble-shooting
 
