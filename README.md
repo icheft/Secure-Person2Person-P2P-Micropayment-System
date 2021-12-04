@@ -29,7 +29,7 @@
 
 ## Functions
 
-5. Exit
++ [x] Exit
 
     ```
     *******Session*******

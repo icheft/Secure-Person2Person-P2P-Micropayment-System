@@ -13,6 +13,7 @@
 #include <string>
 #include <sys/socket.h>
 #include <sys/types.h>
+#include <time.h>
 #include <unistd.h>
 #include <vector>
 
@@ -28,12 +29,13 @@ int SERVER_PORT;
 char SERVER_IP_ADDRESS[20];
 int server_fd; // server socket fd
 char name[20]; // a name for login client
+int login_port = 0; // port for client
 long bytes_read = 0, bytes_written = 0;
 long acct_balance = 0;
 long online_num = 0;
 vector<vector<string>> peer_list;
 string server_public_key;
-bool client_server_open = false;
+bool client_server_open = false; // login = true
 
 class not_found_error : public exception
 {
@@ -53,53 +55,40 @@ struct Account
 
 int main(int argc, char const* argv[])
 {
+    // initialization
     switch (argc) {
-    case 1: {
-        printf("Please specify an IP address and a port number to connect to.\n");
-        printf("%s\n", man);
-        printf("Now running on default...\n");
-        // default
-        SERVER_PORT = DEFAULT_PORT;
-        strcpy(SERVER_IP_ADDRESS, DEFAULT_IP_ADDRESS);
-        break;
-    }
-    case 2: {
-        printf("Please specify an IP address and a port number to connect to.\n");
-        printf("%s\n", man);
-        printf("Now running on default...\n");
-        // default
-        SERVER_PORT = DEFAULT_PORT;
-        strcpy(SERVER_IP_ADDRESS, DEFAULT_IP_ADDRESS);
-        break;
-    }
     case 3: {
         strcpy(SERVER_IP_ADDRESS, argv[1]);
         SERVER_PORT = atoi(argv[2]);
         break;
     }
     default:
-        printf("Please specify an IP address and a port number to connect to.\n");
-        printf("%s\n", man);
-        printf("Now running on default...\n");
+        printf(
+            "%s\n"
+            "%s\n"
+            "%s\n",
+            notice, man, default_program_msg);
         // default
         SERVER_PORT = DEFAULT_PORT;
         strcpy(SERVER_IP_ADDRESS, DEFAULT_IP_ADDRESS);
         break;
     }
 
-    // Socket programming declaration
+    time_t begin = time(NULL);
+
+    // declaration
     int new_socket, valread;
     struct sockaddr_in address;
     int k = 0;
 
-    // Creating client's socket file descriptor
+    // creating server's socket file descriptor
     server_fd = socket(AF_INET, SOCK_STREAM, 0);
     if (server_fd == -1) {
         perror("socket failed");
         exit(EXIT_FAILURE);
     }
 
-    // Forcefully attaching socket to the port
+    // forcefully attaching socket to the port
     bzero(&address, sizeof(address));
 
     address.sin_family = AF_INET;
@@ -114,12 +103,15 @@ int main(int argc, char const* argv[])
         exit(EXIT_FAILURE);
     }
 
-    // Print the server socket addr and port
+    // print the server socket addr and port
     get_info(&address);
 
-    // TODO: wait for user inputs
+    // wait for user inputs
     int opt;
     do {
+        printf("Press enter to continue...");
+        getchar();
+        printf("\033[H\033[J");
         printf("\n*****Select a method:*****\n"
                "1. REGISTER\n"
                "2. LOGIN\n"
@@ -128,7 +120,8 @@ int main(int argc, char const* argv[])
                "5. EXIT\n");
         printf("\n>");
         scanf("%d", &opt);
-        // char* rcv_msg = (char*)malloc(sizeof(char) * MAX_LENGTH);
+        getchar();
+
         char* rcv_msg = new char[MAX_LENGTH];
 
         switch (opt) {
@@ -139,15 +132,16 @@ int main(int argc, char const* argv[])
             break;
         }
         case LOGIN: {
-            int login_port = 0;
+            if (client_server_open) {
+                printf("You have previously logged in with %s on port %d.\n Please open another session or exit to continue with another user.\n", name, login_port);
+            }
             strcpy(rcv_msg, login_server(server_fd, &login_port));
-            // printf("login to port: %d\n", login_port); done
-            printf("\n%s\n", rcv_msg);
-            // TODO: listen to other users
-            // always listening
-            // if system fail, then do not create child process
+            // printf("\n%s\n", rcv_msg);
+            // listen to other users (always listening)
             vector<string> res = split(rcv_msg, " ");
+            printf("\n%s\n", rcv_msg);
             int status = stoi(res[0]);
+
             if (!client_server_open && status != 220) {
                 // create a client server for peer transaction
                 int cserver_fd;
@@ -177,28 +171,51 @@ int main(int argc, char const* argv[])
                 // Creating thread to keep receiving message in real time
                 pthread_create(&tid, NULL, &receive_thread, &cserver_fd);
                 client_server_open = true;
+
+                // show information after creation
+                request_list(server_fd);
+                print_sys_info();
             } else {
-                perror("This session is being logged in.\n");
+                perror("Failed to log in.\n");
             }
 
             break;
         }
         case LIST: { // list
             strcpy(rcv_msg, request_list(server_fd));
-            printf("\n%s\n", rcv_msg);
+            if (!client_server_open) {
+                printf("\n%s\n", rcv_msg);
+                break;
+            }
+            // printf("\n%s\n", rcv_msg);
+            print_sys_info();
             break;
         }
         case TRANSACTION: { // transaction p2p
-            // 先跟 server 要清單 (list of user port)
+            // request list of users from the server
             request_list(server_fd);
-            strcpy(rcv_msg, p2p_transaction(server_fd));
+            try {
+                strcpy(rcv_msg, p2p_transaction(server_fd));
+            } catch (exception& e) {
+                // user not found
+                break;
+            }
             printf("\n%s\n", rcv_msg);
+            printf("Renewing list after transaction...");
+            request_list(server_fd);
+            print_sys_info();
             break;
         }
         case EXIT: {
             // exit
             strcpy(rcv_msg, exit_server(server_fd));
-            printf("\n*****Session ended*****\nConnection closed\n");
+            time_t end = time(NULL);
+            double time_spent = (double)(end - begin);
+            printf("\n*****Session ended*****\n"
+                   "Bytes written: %ld / Bytes read: %ld\n"
+                   "Elapsed time: %.2f sec(s)\n"
+                   "Connection closed\n",
+                bytes_written, bytes_read, time_spent);
             break;
         }
         default:
@@ -211,21 +228,23 @@ int main(int argc, char const* argv[])
 
 char* p2p_transaction(int socket_fd)
 {
-    // from whom
+    // from whom --> can only transfer if logged in
     // how much
     // to whom
     char sender[CMD_LENGTH];
     int amount;
     char receiver[CMD_LENGTH];
-    printf("From: ");
-    scanf("%s", sender);
-    getchar();
-
+    // printf("From: ");
+    // scanf("%s", sender);
+    // getchar();
+    strcpy(sender, name);
     printf("To: ");
     scanf("%s", receiver);
     getchar();
     printf("Amount of money to transfer: ");
     scanf("%d", &amount);
+    getchar();
+
     char* transact_msg = new char[MAX_LENGTH];
     strcat(transact_msg, sender);
     strcat(transact_msg, "#");
@@ -251,6 +270,7 @@ char* p2p_transaction(int socket_fd)
         host_port = stoi(peer_info[2]);
     } catch (exception& e) {
         cout << e.what() << '\n';
+        throw not_found;
     }
 
     // bzero(&peer_serv_addr, sizeof(peer_serv_addr));
@@ -266,7 +286,7 @@ char* p2p_transaction(int socket_fd)
     strcpy(buffer, transact_msg);
     // sending
     bytes_written += send(peer_sock, buffer, sizeof(buffer), 0);
-    printf("msg sent: %s\n", buffer);
+    // printf("msg sent: %s\n", buffer);
     char tmp_msg_from_peer[MAX_LENGTH] = { 0 };
     // bytes_read += recv(peer_sock, tmp_msg_from_peer, MAX_LENGTH, 0); // peer will recv from server
     close(peer_sock);
@@ -309,7 +329,6 @@ void* receive_thread(void* socket_fd)
 int receiving(int socket_fd)
 {
     struct sockaddr_in address;
-    int valread;
     char buffer[2000] = { 0 };
     int addrlen = sizeof(address);
     fd_set current_sockets, ready_sockets;
@@ -342,10 +361,11 @@ int receiving(int socket_fd)
                     FD_SET(client_socket, &current_sockets);
                 } else {
                     // receiving
-                    valread = recv(i, buffer, sizeof(buffer), 0);
-                    printf("\n%s\n", buffer);
-                    send(server_fd, buffer, valread, 0);
-                    char tmp_rcv_from_server[2000] = { 0 };
+                    int tmp_byte_read = recv(i, buffer, sizeof(buffer), 0);
+                    // printf("\n%s\n", buffer);
+                    send(server_fd, buffer, tmp_byte_read, 0);
+                    bytes_read += tmp_byte_read;
+                    // char tmp_rcv_from_server[2000] = { 0 };
                     // int valread_from_server = recv(server_fd, tmp_rcv_from_server, sizeof(tmp_rcv_from_server), 0);
                     // printf("peer from server: %s\n", tmp_rcv_from_server);
                     // send(i, tmp_rcv_from_server, valread_from_server, 0);
@@ -362,9 +382,28 @@ int receiving(int socket_fd)
 
 void get_info(struct sockaddr_in* address)
 {
-    printf("IP address is: %s\n", inet_ntoa(address->sin_addr));
-    printf("port is: %d\n", (int)ntohs(address->sin_port));
+    printf("Connect to IP address: %s\n", inet_ntoa(address->sin_addr));
+    printf("On port: %d\n", (int)ntohs(address->sin_port));
     return;
+}
+
+void print_sys_info()
+{
+    printf(
+        "\n*****List Info*****\n"
+        "Username: %s\n"
+        "Account Balance: %ld\n"
+        "Server Public Key: %s\n"
+        "Online User #: %ld\n",
+        name, acct_balance, server_public_key.c_str(), online_num);
+
+    if (online_num > 0) {
+        printf("Peer List (# - <name>#<IP>#<port>):\n");
+        for (int i = 0; i < peer_list.size(); i++) {
+            printf("  %d - %s#%s#%s\n", i + 1, peer_list[i][0].c_str(), peer_list[i][1].c_str(), peer_list[i][2].c_str());
+        }
+    }
+    printf("\n");
 }
 
 void parse_list_info(char* msg)
@@ -373,6 +412,7 @@ void parse_list_info(char* msg)
     acct_balance = stoi(tmp[0]);
     server_public_key = tmp[1];
     online_num = stoi(tmp[2]);
+    peer_list = vector<vector<string>>();
     for (int i = 3; i < 3 + online_num; i++) {
         peer_list.push_back(split(tmp[i], "#"));
     }
@@ -385,6 +425,7 @@ char* register_user(int socket_fd)
 
     printf("Enter username: ");
     scanf("%s", name);
+    getchar();
     strcat(snd_msg, name);
     int snd_byte = send(socket_fd, snd_msg, sizeof(snd_msg) + 1, 0);
     bytes_written += snd_byte;
@@ -424,6 +465,7 @@ char* login_server(int socket_fd, int* login_port)
     char user_port[6];
     printf("Enter port: ");
     scanf("%s", user_port);
+    getchar();
     string tmp_s(user_port);
 
     *login_port = stoi(tmp_s);
