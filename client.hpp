@@ -16,17 +16,19 @@ const char* man = "Usage: ./client <IP_address> <port_number>\n"
                   "port_number should be an integer between 1024 and 65535.";
 
 void sending();
-void receiving(int socket_fd); // taking in file descriptor
+int receiving(int socket_fd); // taking in file descriptor
 void* receive_thread(void* socket_fd);
 void get_info(struct sockaddr_in*);
-int check_command(char* msg);
+// int check_command(char* msg);
 
 void peer_setup(int server_fd);
 char* exit_server(int socket_fd);
 char* register_user(int socket_fd);
-char* login_server(int socket_fd);
+char* login_server(int socket_fd, int* login_port);
 char* request_list(int socket_fd);
 char* p2p_transaction(int socket_fd);
-void parse_info(char* msg);
+void send_peer(char* msg, int host_port);
+vector<string> find_peer_info(char* name);
+void parse_list_info(char* msg);
 
 vector<string> split(string str, string sep);
