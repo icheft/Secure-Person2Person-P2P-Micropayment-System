@@ -133,14 +133,36 @@ int main(int argc, char const* argv[])
         }
         case LOGIN: {
             if (client_server_open) {
-                printf("You have previously logged in with %s on port %d.\n Please open another session or exit to continue with another user.\n", name, login_port);
+                printf("You have previously logged in with %s on port %d.\nPlease consider open another session or exit to continue with another user.\n", name, login_port);
+                break;
+                // char login_opt;
+                // while (true) {
+                //     printf("Do you want to continue without logging out?[Y/n] ");
+                //     do {
+                //         scanf("%c", &login_opt);
+                //     } while (login_opt == '\n');
+                //     if (login_opt == 'Y') {
+                //         client_server_open = false;
+                //         break;
+                //     } else if (login_opt == 'n') {
+                //         break;
+                //     }
+                // }
+                // if (login_opt == 'n') break;
             }
+
             strcpy(rcv_msg, login_server(server_fd, &login_port));
             // printf("\n%s\n", rcv_msg);
             // listen to other users (always listening)
-            vector<string> res = split(rcv_msg, " ");
-            printf("\n%s\n", rcv_msg);
-            int status = stoi(res[0]);
+            vector<string> res = split(rcv_msg, "\n");
+            int status = 200;
+            if (res.size() <= 3) {
+                // sth may happen
+                if (res.size() <= 2)
+                    status = stoi(res[0]);
+                printf("\n%s\n", rcv_msg);
+                break;
+            }
 
             if (!client_server_open && status != 220) {
                 // create a client server for peer transaction
