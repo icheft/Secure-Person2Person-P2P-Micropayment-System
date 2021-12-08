@@ -154,7 +154,7 @@ int main(int argc, char const* argv[])
             if (!client_server_open && status != 220) {
                 // if not equal to AUTH_FAIL
                 // create a client server for peer transaction
-                int cserver_fd;
+                int cserver_fd; // client server
                 struct sockaddr_in cserver_address;
                 int k = 0;
                 // Creating socket file descriptor
@@ -183,13 +183,9 @@ int main(int argc, char const* argv[])
                 client_server_open = true;
 
                 // show information after creation
-                // TODO: CREATE BASED ON USERIP
-                // char* tmp = new char[MAX_LENGTH];
                 string host_ip;
                 request_list(server_fd);
                 print_sys_info();
-                // vector<string> peer_info = find_peer_info(name);
-                // host_ip = peer_info[1];
             } else {
                 perror("Failed to log in.\n");
             }
@@ -212,7 +208,7 @@ int main(int argc, char const* argv[])
             try {
                 strcpy(rcv_msg, p2p_transaction(server_fd));
             } catch (exception& e) {
-                // user not found
+                // user not found --> will print out the message in p2p
                 break;
             }
             printf("\n%s\n", rcv_msg);
@@ -224,6 +220,7 @@ int main(int argc, char const* argv[])
         case EXIT: {
             // exit
             strcpy(rcv_msg, exit_server(server_fd));
+            // FIXME: close client server
             time_t end = time(NULL);
             double time_spent = (double)(end - begin);
             printf("\n*****Session ended*****\n"
@@ -249,9 +246,7 @@ char* p2p_transaction(int socket_fd)
     char sender[CMD_LENGTH];
     int amount;
     char receiver[CMD_LENGTH];
-    // printf("From: ");
-    // scanf("%s", sender);
-    // getchar();
+
     strcpy(sender, name);
     printf("To: ");
     scanf("%s", receiver);
@@ -266,7 +261,8 @@ char* p2p_transaction(int socket_fd)
     strcat(transact_msg, to_string(amount).c_str());
     strcat(transact_msg, "#");
     strcat(transact_msg, receiver);
-    // receive confirm message from server
+
+    // empty char* to receive confirm message from server
     char* rcv_msg = new char[MAX_LENGTH];
 
     // Connect to peer socket
@@ -280,7 +276,6 @@ char* p2p_transaction(int socket_fd)
 
     int host_port;
     string host_ip;
-    // struct hostent* host_server;
     try {
         // find user
         vector<string> peer_info = find_peer_info(receiver);
@@ -288,12 +283,12 @@ char* p2p_transaction(int socket_fd)
         host_ip = peer_info[1];
     } catch (exception& e) {
         cout << e.what() << '\n';
-        throw not_found;
+        throw not_found; // throw again to main
     }
 
     bzero(&peer_serv_addr, sizeof(peer_serv_addr));
     peer_serv_addr.sin_family = AF_INET;
-    peer_serv_addr.sin_addr.s_addr = INADDR_ANY; // inet_addr(host_ip.c_str()); // INADDR_ANY always gives an IP of 0.0.0.0
+    peer_serv_addr.sin_addr.s_addr = INADDR_ANY; // INADDR_ANY always gives an IP of 0.0.0.0 //  inet_addr(host_ip.c_str());
     peer_serv_addr.sin_port = htons(host_port);
 
     int err = connect(peer_sock, (struct sockaddr*)&peer_serv_addr, sizeof(peer_serv_addr));
