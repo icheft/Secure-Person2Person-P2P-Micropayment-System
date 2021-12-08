@@ -217,7 +217,7 @@ int main(int argc, char const* argv[])
             }
             printf("\n%s\n", rcv_msg);
             printf("Renewing list after transaction...\n");
-            request_list(server_fd);
+            strcpy(rcv_msg, request_list(server_fd));
             print_sys_info();
             break;
         }
@@ -296,7 +296,7 @@ char* p2p_transaction(int socket_fd)
     peer_serv_addr.sin_family = AF_INET;
     peer_serv_addr.sin_addr.s_addr = INADDR_ANY; // inet_addr(host_ip.c_str()); // INADDR_ANY always gives an IP of 0.0.0.0
     peer_serv_addr.sin_port = htons(host_port);
-    printf("connecting to %s...\n", (char*)&peer_serv_addr.sin_addr.s_addr);
+    // printf("connecting to %s...\n", (char*)&peer_serv_addr.sin_addr.s_addr);
 
     int err = connect(peer_sock, (struct sockaddr*)&peer_serv_addr, sizeof(peer_serv_addr));
     if (err == FAIL) {
