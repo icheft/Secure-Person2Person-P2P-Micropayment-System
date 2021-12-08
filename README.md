@@ -37,3 +37,5 @@
     Elapsed time: 42 secs
     Connection closed
     ```
+
++ `sudo ufw allow 60100`
