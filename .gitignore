@@ -11,6 +11,8 @@ bt
 mic
 client
 test/tmp*
+test/host*
+sp-ubuntu-devel-image/
 
 # Created by https://www.toptal.com/developers/gitignore/api/macos,linux,c++,qt,qtcreator,vim,latex,python,c,cmake,zsh
 # Edit at https://www.toptal.com/developers/gitignore?templates=macos,linux,c++,qt,qtcreator,vim,latex,python,c,cmake,zsh
