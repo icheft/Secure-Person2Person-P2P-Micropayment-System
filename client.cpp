@@ -213,7 +213,7 @@ int main(int argc, char const* argv[])
             }
             printf("\n%s\n", rcv_msg);
             printf("Renewing list after transaction...\n");
-            request_list(server_fd);
+            strcpy(rcv_msg, request_list(server_fd));
             print_sys_info();
             break;
         }
