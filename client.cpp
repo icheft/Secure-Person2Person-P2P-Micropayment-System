@@ -139,7 +139,6 @@ int main(int argc, char const* argv[])
             }
 
             strcpy(rcv_msg, login_server(server_fd, &login_port));
-            // printf("\n%s\n", rcv_msg);
             // listen to other users (always listening)
             vector<string> res = split(rcv_msg, "\n");
             int status = 100; // 100 OK
@@ -162,8 +161,8 @@ int main(int argc, char const* argv[])
                     perror("Failed to create a socket. Now aborting.");
                     exit(EXIT_FAILURE);
                 }
-                // Forcefully attaching socket to the port
 
+                // Forcefully attaching socket to the port
                 cserver_address.sin_family = AF_INET;
                 cserver_address.sin_addr.s_addr = INADDR_ANY; // 0.0.0.0
                 cserver_address.sin_port = htons(login_port);
@@ -198,7 +197,6 @@ int main(int argc, char const* argv[])
                 printf("\n%s\n", rcv_msg);
                 break;
             }
-            // printf("\n%s\n", rcv_msg);
             print_sys_info();
             break;
         }
@@ -220,7 +218,7 @@ int main(int argc, char const* argv[])
         case EXIT: {
             // exit
             strcpy(rcv_msg, exit_server(server_fd));
-            // FIXME: close client server
+            // TODO: close client server
             time_t end = time(NULL);
             double time_spent = (double)(end - begin);
             printf("\n*****Session ended*****\n"
@@ -299,11 +297,8 @@ char* p2p_transaction(int socket_fd)
     strcpy(buffer, transact_msg);
     // sending
     bytes_written += send(peer_sock, buffer, sizeof(buffer), 0);
-    // printf("msg sent: %s\n", buffer);
     char tmp_msg_from_peer[MAX_LENGTH] = { 0 };
-    // bytes_read += recv(peer_sock, tmp_msg_from_peer, MAX_LENGTH, 0); // peer will recv from server
     close(peer_sock);
-    // printf("msg from peer: %s\n", tmp_msg_from_peer);
     bytes_read += recv(server_fd, rcv_msg, MAX_LENGTH, 0);
 
     return rcv_msg; // transfer OK
@@ -315,7 +310,6 @@ vector<string> find_peer_info(char* name)
         printf("There is currently no online users.\n");
         throw not_found;
     } else {
-        // string tmp_name(name);
         for (int i = 0; i < peer_list.size(); i++) {
             if (strcmp(name, peer_list[i][0].c_str()) == 0) {
                 return peer_list[i];
@@ -379,10 +373,6 @@ int receiving(int socket_fd)
                     send(server_fd, buffer, tmp_byte_read, 0);
                     bytes_read += tmp_byte_read;
                     printf("\n[Notification] %s just sent you $%s!\n", transfer_info[0].c_str(), transfer_info[1].c_str());
-                    // char tmp_rcv_from_server[2000] = { 0 };
-                    // int valread_from_server = recv(server_fd, tmp_rcv_from_server, sizeof(tmp_rcv_from_server), 0);
-                    // printf("peer from server: %s\n", tmp_rcv_from_server);
-                    // send(i, tmp_rcv_from_server, valread_from_server, 0);
                     FD_CLR(i, &current_sockets);
                 }
             }
@@ -534,7 +524,7 @@ char* request_list(int socket_fd)
     int rcv_byte = recv(socket_fd, rcv_msg, MAX_LENGTH, 0);
     bytes_read += rcv_byte;
     // parse_info
-    // FIXME: way to identify error
+    // FIXME: way to identify error --> be aware when self-implemtating the server
     if (strcmp(rcv_msg, "Please login first\n") != 0) {
         parse_list_info(rcv_msg);
     }
