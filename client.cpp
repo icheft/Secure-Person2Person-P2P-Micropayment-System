@@ -3,6 +3,7 @@
 #include <ctype.h>
 #include <exception>
 #include <iostream>
+#include <netdb.h>
 #include <netinet/in.h>
 #include <pthread.h>
 #include <stdbool.h>
@@ -23,12 +24,13 @@ using namespace std;
 #define FAIL -1
 #define MAX_LENGTH 1024
 
+// global variables
 const char DEFAULT_IP_ADDRESS[20] = "10.211.55.4";
 const int DEFAULT_PORT = 8888;
 int SERVER_PORT;
 char SERVER_IP_ADDRESS[20];
 int server_fd; // server socket fd
-char name[20]; // a name for login client
+char name[MAX_LENGTH]; // a name for login client
 int login_port = 0; // port for client
 long bytes_read = 0, bytes_written = 0;
 long acct_balance = 0;
@@ -37,6 +39,7 @@ vector<vector<string>> peer_list;
 string server_public_key;
 bool client_server_open = false; // login = true
 
+// exceptions
 class not_found_error : public exception
 {
     virtual const char* what() const throw()
@@ -44,14 +47,6 @@ class not_found_error : public exception
         return "User not found.";
     }
 } not_found;
-
-struct Account
-{
-    string name;
-    string ip_address;
-    string port_number;
-    long acct_balance;
-};
 
 int main(int argc, char const* argv[])
 {
@@ -62,7 +57,8 @@ int main(int argc, char const* argv[])
         SERVER_PORT = atoi(argv[2]);
         break;
     }
-    default:
+    default: {
+        // using default
         printf(
             "%s\n"
             "%s\n"
@@ -73,24 +69,24 @@ int main(int argc, char const* argv[])
         strcpy(SERVER_IP_ADDRESS, DEFAULT_IP_ADDRESS);
         break;
     }
+    }
 
+    // session time
     time_t begin = time(NULL);
 
-    // declaration
-    int new_socket, valread;
+    // declaration for server socket
     struct sockaddr_in address;
     int k = 0;
 
     // creating server's socket file descriptor
     server_fd = socket(AF_INET, SOCK_STREAM, 0);
     if (server_fd == -1) {
-        perror("socket failed");
+        perror("Failed to create a socket. Now aborting.");
         exit(EXIT_FAILURE);
     }
 
     // forcefully attaching socket to the port
     bzero(&address, sizeof(address));
-
     address.sin_family = AF_INET;
     address.sin_addr.s_addr = inet_addr(SERVER_IP_ADDRESS); // Parallels "10.211.55.4"
     address.sin_port = htons(SERVER_PORT); /// 8888
@@ -112,15 +108,20 @@ int main(int argc, char const* argv[])
         printf("Press enter to continue...");
         getchar();
         printf("\033[H\033[J");
-        printf("\n*****Select a method:*****\n"
-               "1. REGISTER\n"
-               "2. LOGIN\n"
-               "3. LIST\n"
-               "4. TRANSACTION\n"
-               "5. EXIT\n");
-        printf("\n>");
+        printf("\n*****Please select a method to continue*****\n\n"
+               "1) [REGISTER] Register a user\n"
+               "2) [LOGIN] Log in to server\n"
+               "3) [LIST] Get latest updates\n"
+               "4) [TRANSACTION] Make a transaction\n"
+               "5) [EXIT] Log out from server\n");
+        // option
+        if (client_server_open) {
+            printf("\n[%s] ", name);
+        } else
+            printf("\n ");
         scanf("%d", &opt);
         getchar();
+        // end option
 
         char* rcv_msg = new char[MAX_LENGTH];
 
@@ -135,27 +136,13 @@ int main(int argc, char const* argv[])
             if (client_server_open) {
                 printf("You have previously logged in with %s on port %d.\nPlease consider open another session or exit to continue with another user.\n", name, login_port);
                 break;
-                // char login_opt;
-                // while (true) {
-                //     printf("Do you want to continue without logging out?[Y/n] ");
-                //     do {
-                //         scanf("%c", &login_opt);
-                //     } while (login_opt == '\n');
-                //     if (login_opt == 'Y') {
-                //         client_server_open = false;
-                //         break;
-                //     } else if (login_opt == 'n') {
-                //         break;
-                //     }
-                // }
-                // if (login_opt == 'n') break;
             }
 
             strcpy(rcv_msg, login_server(server_fd, &login_port));
             // printf("\n%s\n", rcv_msg);
             // listen to other users (always listening)
             vector<string> res = split(rcv_msg, "\n");
-            int status = 200;
+            int status = 100; // 100 OK
             if (res.size() <= 3) {
                 // sth may happen
                 if (res.size() <= 2)
@@ -165,19 +152,20 @@ int main(int argc, char const* argv[])
             }
 
             if (!client_server_open && status != 220) {
+                // if not equal to AUTH_FAIL
                 // create a client server for peer transaction
                 int cserver_fd;
                 struct sockaddr_in cserver_address;
                 int k = 0;
                 // Creating socket file descriptor
                 if ((cserver_fd = socket(AF_INET, SOCK_STREAM, 0)) == -1) {
-                    perror("socket failed");
+                    perror("Failed to create a socket. Now aborting.");
                     exit(EXIT_FAILURE);
                 }
                 // Forcefully attaching socket to the port
 
                 cserver_address.sin_family = AF_INET;
-                cserver_address.sin_addr.s_addr = INADDR_ANY;
+                cserver_address.sin_addr.s_addr = INADDR_ANY; // 0.0.0.0
                 cserver_address.sin_port = htons(login_port);
                 if (::bind(cserver_fd, (struct sockaddr*)&cserver_address, sizeof(cserver_address)) < 0) {
                     perror("bind failed");
@@ -195,8 +183,13 @@ int main(int argc, char const* argv[])
                 client_server_open = true;
 
                 // show information after creation
+                // TODO: CREATE BASED ON USERIP
+                // char* tmp = new char[MAX_LENGTH];
+                string host_ip;
                 request_list(server_fd);
                 print_sys_info();
+                // vector<string> peer_info = find_peer_info(name);
+                // host_ip = peer_info[1];
             } else {
                 perror("Failed to log in.\n");
             }
@@ -223,7 +216,7 @@ int main(int argc, char const* argv[])
                 break;
             }
             printf("\n%s\n", rcv_msg);
-            printf("Renewing list after transaction...");
+            printf("Renewing list after transaction...\n");
             request_list(server_fd);
             print_sys_info();
             break;
@@ -281,24 +274,29 @@ char* p2p_transaction(int socket_fd)
     struct sockaddr_in peer_serv_addr;
     peer_sock = socket(AF_INET, SOCK_STREAM, 0);
 
-    if (peer_sock < 0) {
+    if (peer_sock == -1) {
         printf("\n Socket creation error \n");
     }
 
     int host_port;
+    string host_ip;
+    struct hostent* host_server;
     try {
         // find user
         vector<string> peer_info = find_peer_info(receiver);
         host_port = stoi(peer_info[2]);
+        host_ip = peer_info[1];
+        // host_server = gethostbyname(host_ip.c_str());
     } catch (exception& e) {
         cout << e.what() << '\n';
         throw not_found;
     }
 
-    // bzero(&peer_serv_addr, sizeof(peer_serv_addr));
+    bzero(&peer_serv_addr, sizeof(peer_serv_addr));
     peer_serv_addr.sin_family = AF_INET;
-    peer_serv_addr.sin_addr.s_addr = INADDR_ANY; // INADDR_ANY always gives an IP of 0.0.0.0
+    peer_serv_addr.sin_addr.s_addr = INADDR_ANY; // inet_addr(host_ip.c_str()); // INADDR_ANY always gives an IP of 0.0.0.0
     peer_serv_addr.sin_port = htons(host_port);
+    printf("connecting to %s...\n", (char*)&peer_serv_addr.sin_addr.s_addr);
 
     int err = connect(peer_sock, (struct sockaddr*)&peer_serv_addr, sizeof(peer_serv_addr));
     if (err == FAIL) {
@@ -384,9 +382,10 @@ int receiving(int socket_fd)
                 } else {
                     // receiving
                     int tmp_byte_read = recv(i, buffer, sizeof(buffer), 0);
-                    // printf("\n%s\n", buffer);
+                    vector<string> transfer_info = split(buffer, "#");
                     send(server_fd, buffer, tmp_byte_read, 0);
                     bytes_read += tmp_byte_read;
+                    printf("\n[Notification] %s just sent you $%s!\n", transfer_info[0].c_str(), transfer_info[1].c_str());
                     // char tmp_rcv_from_server[2000] = { 0 };
                     // int valread_from_server = recv(server_fd, tmp_rcv_from_server, sizeof(tmp_rcv_from_server), 0);
                     // printf("peer from server: %s\n", tmp_rcv_from_server);
@@ -412,7 +411,7 @@ void get_info(struct sockaddr_in* address)
 void print_sys_info()
 {
     printf(
-        "\n*****List Info*****\n"
+        "\n*****System Information*****\n"
         "Username: %s\n"
         "Account Balance: %ld\n"
         "Server Public Key: %s\n"
@@ -444,11 +443,14 @@ char* register_user(int socket_fd)
 {
     char snd_msg[MAX_LENGTH] = "REGISTER#";
     char* rcv_msg = new char[MAX_LENGTH];
-
+    char tmp_name[MAX_LENGTH];
     printf("Enter username: ");
-    scanf("%s", name);
+    scanf("%s", tmp_name);
     getchar();
-    strcat(snd_msg, name);
+    strcat(snd_msg, tmp_name);
+    if (!client_server_open) {
+        strcpy(name, tmp_name);
+    }
     int snd_byte = send(socket_fd, snd_msg, sizeof(snd_msg) + 1, 0);
     bytes_written += snd_byte;
 
@@ -465,7 +467,7 @@ char* login_server(int socket_fd, int* login_port)
     char tmp_name[20];
     char auth;
     while (true) {
-        printf("Are you a current user?[Y/n] ");
+        printf("Using the JUST registered account?[Y/n] ");
         do {
             scanf("%c", &auth);
         } while (auth == '\n');
@@ -485,14 +487,42 @@ char* login_server(int socket_fd, int* login_port)
     strcat(snd_msg, "#");
 
     char user_port[6];
-    printf("Enter port: ");
+    printf("Enter port (enter 0 if you are not sure which port to use): ");
     scanf("%s", user_port);
     getchar();
     string tmp_s(user_port);
 
-    *login_port = stoi(tmp_s);
+    if (stoi(tmp_s) == 0) {
+        struct sockaddr_in tmp_sin;
+        int tmp_socket;
 
-    strcat(snd_msg, user_port);
+        tmp_socket = socket(AF_INET, SOCK_STREAM, 0);
+        if (tmp_socket == -1) {
+            perror("Unknown error occurred. Failed to create a socket. Now aborting.");
+            exit(EXIT_FAILURE);
+        }
+
+        tmp_sin.sin_port = htons(0);
+        tmp_sin.sin_addr.s_addr = INADDR_ANY;
+        tmp_sin.sin_family = AF_INET;
+
+        if (::bind(tmp_socket, (struct sockaddr*)&tmp_sin, sizeof(struct sockaddr_in)) == -1) {
+            perror("Unable to locate a free port. Now aborting.");
+            exit(EXIT_FAILURE);
+        }
+
+        socklen_t len = sizeof(tmp_sin);
+        if (getsockname(tmp_socket, (struct sockaddr*)&tmp_sin, &len) != -1) {
+            *login_port = ntohs(tmp_sin.sin_port);
+            printf("Requesting %s on port # %d...\n", name, *login_port);
+        }
+        close(tmp_socket);
+
+    } else
+        *login_port = stoi(tmp_s);
+
+    strcat(snd_msg, to_string(*login_port).c_str());
+    // send message to server
     int snd_byte = send(socket_fd, snd_msg, sizeof(snd_msg) + 1, 0);
     bytes_written += snd_byte;
 
@@ -521,6 +551,10 @@ char* request_list(int socket_fd)
 
 char* exit_server(int socket_fd)
 {
+    if (client_server_open) {
+        printf("See you next time, %s!\n", name);
+    } else
+        printf("See you next time!\n");
     const char* exit_msg = "Exit";
     char* rcv_msg = new char[MAX_LENGTH];
     send(socket_fd, exit_msg, sizeof(exit_msg) + 1, 0);
