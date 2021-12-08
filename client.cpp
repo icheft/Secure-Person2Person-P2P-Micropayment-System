@@ -280,13 +280,12 @@ char* p2p_transaction(int socket_fd)
 
     int host_port;
     string host_ip;
-    struct hostent* host_server;
+    // struct hostent* host_server;
     try {
         // find user
         vector<string> peer_info = find_peer_info(receiver);
         host_port = stoi(peer_info[2]);
         host_ip = peer_info[1];
-        // host_server = gethostbyname(host_ip.c_str());
     } catch (exception& e) {
         cout << e.what() << '\n';
         throw not_found;
@@ -296,7 +295,6 @@ char* p2p_transaction(int socket_fd)
     peer_serv_addr.sin_family = AF_INET;
     peer_serv_addr.sin_addr.s_addr = INADDR_ANY; // inet_addr(host_ip.c_str()); // INADDR_ANY always gives an IP of 0.0.0.0
     peer_serv_addr.sin_port = htons(host_port);
-    printf("connecting to %s...\n", (char*)&peer_serv_addr.sin_addr.s_addr);
 
     int err = connect(peer_sock, (struct sockaddr*)&peer_serv_addr, sizeof(peer_serv_addr));
     if (err == FAIL) {
