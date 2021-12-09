@@ -166,7 +166,7 @@ If `client` binary already exists, you may want to run `make clean` first to rem
 + [x] 和其它 Client 執行轉帳功能 (不可透過 Server 端轉送)。(transaction)
 + [x] 進行離線動作前需主動告知 Server 端程式。(exit)
 
-Submission:
+**Submission**:
 
 ```sh
 sh sub.sh <SID>
