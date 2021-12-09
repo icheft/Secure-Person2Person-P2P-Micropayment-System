@@ -14,15 +14,6 @@ endif
 
 client: client.cpp client.hpp
 	$(CC) $(CLIB) ./client.cpp $(CFLAGS) -o client
-bt: test/client_bt.c
-	$(CC) ./client_bt.c $(CFLAGS) -o bt
-p2p: test/client_p2p.cpp
-	$(CC) $(CLIB) ./test/client_p2p.cpp $(CFLAGS) -o p2p
-mic: test/mic.cpp
-	$(CC) $(CLIB) ./test/mic.cpp $(CFLAGS) -o mic
-host: host.cpp
-	$(CC) $(CLIB) ./host.cpp $(CFLAGS) -o host
-
 
 .PHONY: clean
 
