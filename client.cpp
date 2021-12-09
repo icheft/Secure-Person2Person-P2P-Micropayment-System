@@ -25,8 +25,8 @@ using namespace std;
 #define MAX_LENGTH 1024
 
 // global variables
-const char DEFAULT_IP_ADDRESS[20] = "10.211.55.4";
-const int DEFAULT_PORT = 8888;
+const char DEFAULT_IP_ADDRESS[20] = "10.211.55.4"; // Parallels "10.211.55.4"
+const int DEFAULT_PORT = 8888; // 8888
 int SERVER_PORT;
 char SERVER_IP_ADDRESS[20];
 int server_fd; // server socket fd
@@ -88,8 +88,8 @@ int main(int argc, char const* argv[])
     // forcefully attaching socket to the port
     bzero(&address, sizeof(address));
     address.sin_family = AF_INET;
-    address.sin_addr.s_addr = inet_addr(SERVER_IP_ADDRESS); // Parallels "10.211.55.4"
-    address.sin_port = htons(SERVER_PORT); /// 8888
+    address.sin_addr.s_addr = inet_addr(SERVER_IP_ADDRESS);
+    address.sin_port = htons(SERVER_PORT);
 
     int err = connect(server_fd, (struct sockaddr*)&address, sizeof(address));
 
@@ -139,6 +139,7 @@ int main(int argc, char const* argv[])
             }
 
             strcpy(rcv_msg, login_server(server_fd, &login_port));
+
             // listen to other users (always listening)
             vector<string> res = split(rcv_msg, "\n");
             int status = 100; // 100 OK
