@@ -12,8 +12,8 @@ ifeq ($(UNAME), Linux)
 CFLAGS=-lstdc++ -pthread -lrt -lpthread
 endif
 
-client: client.cpp client.hpp
-	$(CC) $(CLIB) ./client.cpp $(CFLAGS) -o client
+client: src/client.cpp src/client.hpp
+	$(CC) $(CLIB) ./src/client.cpp $(CFLAGS) -o client
 
 .PHONY: clean
 

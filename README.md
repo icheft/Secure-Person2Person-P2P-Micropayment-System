@@ -166,6 +166,16 @@ If `client` binary already exists, you may want to run `make clean` first to rem
 + [x] 和其它 Client 執行轉帳功能 (不可透過 Server 端轉送)。(transaction)
 + [x] 進行離線動作前需主動告知 Server 端程式。(exit)
 
+Submission:
+
+```sh
+sh sub.sh <SID>
+```
+
++ [x] Source Code(Client 端程式的原始碼)。
++ [x] 操作說明文件 PDF 檔(包含如何編譯、執行 Client 端程式，程式執行環境說明，參考資料、來源等)。
++ [x] Binary 執行檔(已 Compile 及 Linking 完成並可執行的 Client 端程 式)。
++ [x] 用以編譯程式之 Makefile。
 ### Trouble-shooting
 On Parallels:
 
@@ -176,3 +186,4 @@ On workstation:
 
 1. `sudo ufw allow 60100`
 2. `./client 140.112.106.45 60100`
+
