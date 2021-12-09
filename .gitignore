@@ -14,6 +14,7 @@ test/tmp*
 test/host*
 sp-ubuntu-devel-image/
 *.tar.gz
+*.zip
 docs/*-doc.pdf
 
 # Created by https://www.toptal.com/developers/gitignore/api/macos,linux,c++,qt,qtcreator,vim,latex,python,c,cmake,zsh
