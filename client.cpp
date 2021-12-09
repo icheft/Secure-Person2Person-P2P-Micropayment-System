@@ -219,7 +219,6 @@ int main(int argc, char const* argv[])
         case EXIT: {
             // exit
             strcpy(rcv_msg, exit_server(server_fd));
-            // TODO: close client server
             time_t end = time(NULL);
             double time_spent = (double)(end - begin);
             printf("\n*****Session ended*****\n"
