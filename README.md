@@ -1,8 +1,6 @@
-<center>
-<h1>A Secure Person2Person (P2P) Micropayment System - Server</h1>
+<h1 align="center">A Secure Person2Person (P2P) Micropayment System - Server</h1>
 
-<h3>IM 3010 Programming Assignment: Phase 02 Implementation</h3>
-</center>
+<h3 align="center">IM 3010 Programming Assignment: Phase 02 Implementation</h3>
 
 
 ## Development
