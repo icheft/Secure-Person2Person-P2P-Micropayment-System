@@ -3,6 +3,7 @@ demo/*.mp4
 2021-Programming Assignment.pdf
 test/*.c
 test/*.cpp
+test/*.hpp
 test/client
 test/p2p
 test/bt
@@ -10,10 +11,13 @@ test/*.db
 test/tmp*
 test/host*
 test/*.out
+
 p2p
 bt
 mic
 client
+server
+server.db
 sp-ubuntu-devel-image/
 *.tar.gz
 *.zip
