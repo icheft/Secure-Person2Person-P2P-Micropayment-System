@@ -85,7 +85,15 @@
         "stop_token": "cpp",
         "cinttypes": "cpp",
         "__functional_03": "cpp",
-        "filesystem": "cpp"
+        "filesystem": "cpp",
+        "fstream": "c",
+        "codecvt": "cpp",
+        "iomanip": "cpp",
+        "stack": "cpp",
+        "__tree": "cpp",
+        "map": "cpp",
+        "set": "cpp",
+        "typeindex": "cpp"
     },
     "cmake.configureOnOpen": true,
     "emeraldwalk.runonsave": {
@@ -97,6 +105,10 @@
                 "cmd": "sh build.sh ${relativeFile}"
             }
         ]
-    }
-    
+    },
+    "C_Cpp.default.cppStandard": "c++17",
+    "C_Cpp.default.cStandard": "c17",
+    "C_Cpp.default.includePath": [
+        "./include"
+    ]
 }
