@@ -19,6 +19,7 @@ sh sub.sh <SID>
 
 
 ### Trouble-shooting
+#### IP and Port # Setup
 **On Parallels**:
 
 1. `10.211.55.4`
@@ -33,6 +34,20 @@ sh sub.sh <SID>
 
 Execute everything within Karton.
 
+#### `sqlite3`
+
+**Linux**:
+
+```
+sudo apt install sqlite3
+sudo apt-get install libsqlite3-dev
+```
+
+**macOS**:
+
+`sqlite` is pre-installed on macOS.
+
+
 ### ToDos and References
 
 + [ ] Creation of a database for handling multiple input and querying
@@ -41,6 +56,7 @@ Execute everything within Karton.
     + [Filesystem Library in `C++17`](https://stackoverflow.com/a/59424074/10871988) see [file.cpp](./test/file.cpp)
 + [ ] More on sqlite C++
     + <https://github.com/fnc12/sqlite_orm>
+    + <https://www.runoob.com/sqlite/sqlite-c-cpp.html>
 + [ ] Thread and Worker Pool
     + <https://ncona.com/2019/05/using-thread-pools-in-cpp/>
 + [x] VSC not showing errors
