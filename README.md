@@ -39,5 +39,9 @@ Execute everything within Karton.
     + see [test.c](./test/test.c)
 + [ ] Deletion of the database (`*.db`)
     + [Filesystem Library in `C++17`](https://stackoverflow.com/a/59424074/10871988) see [file.cpp](./test/file.cpp)
++ [ ] More on sqlite C++
+    + <https://github.com/fnc12/sqlite_orm>
++ [ ] Thread and Worker Pool
+    + <https://ncona.com/2019/05/using-thread-pools-in-cpp/>
 + [x] VSC not showing errors
     + Fixed as mentioned in [this issue](https://github.com/microsoft/vscode-cpptools/issues/2164#issuecomment-399232736)
