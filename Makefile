@@ -17,14 +17,11 @@ ifeq ($(UNAME), Linux)
 CFLAGS=-lstdc++ -pthread -lrt -lpthread -lsqlite3 $(INCLUDE)
 endif
 
-run: client
+	
+run: client server
+	@echo 🍺 Type \"./server \<PORT\> -\<OPTION\>\" to start the server;
 	@echo 🍺 Type \"./client \<SERVER_IP\> \<SERVER_PORT\>\" to start the client.
 	@echo 💬 \(Or type \"make clean\" to clean the binaries\)
-	
-# run: client server
-# 	@echo 🍺 Type \"./server \<PORT\> -\<OPTION\>\" to start the server;
-# 	@echo 🍺 Type \"./client \<SERVER_IP\> \<SERVER_PORT\>\" to start the client.
-# 	@echo 💬 \(Or type \"make clean\" to clean the binaries\)
 
 
 # FIXME - bad name here
@@ -44,6 +41,7 @@ clean:
 	rm -f client server
 	@echo 🧹 client and server binaries are now removed.
 
-clean-all: 
-	rm -f client server server.db
-	@echo 🧹 client, server, and serber database are now removed.
+# TODO: database opt
+# clean-all: 
+# 	rm -f client server server.db
+# 	@echo 🧹 client and server binaries are now removed.
