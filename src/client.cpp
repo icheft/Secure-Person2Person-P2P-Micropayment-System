@@ -1,22 +1,4 @@
 #include "client.hpp"
-#include <arpa/inet.h>
-#include <ctype.h>
-#include <exception>
-#include <iostream>
-#include <netdb.h>
-#include <netinet/in.h>
-#include <pthread.h>
-#include <stdbool.h>
-#include <stdexcept>
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-#include <string>
-#include <sys/socket.h>
-#include <sys/types.h>
-#include <time.h>
-#include <unistd.h>
-#include <vector>
 
 using namespace std;
 
@@ -38,6 +20,7 @@ long online_num = 0;
 vector<vector<string>> peer_list;
 string server_public_key;
 bool client_server_open = false; // login = true
+int cserver_fd; // client server
 
 // exceptions
 class not_found_error : public exception
@@ -50,6 +33,9 @@ class not_found_error : public exception
 
 int main(int argc, char const* argv[])
 {
+    // handler
+    signal(SIGINT, sigint_handler);
+
     // initialization
     switch (argc) {
     case 3: {
@@ -144,9 +130,9 @@ int main(int argc, char const* argv[])
             vector<string> res = split(rcv_msg, "\n");
             int status = 100; // 100 OK
             if (res.size() <= 3) {
-                // sth may happen
-                if (res.size() <= 2)
-                    status = stoi(res[0]);
+                // // sth may happen
+                // if (res.size() <= 2)
+                //     status = stoi(res[0]);
                 printf("\n%s\n", rcv_msg);
                 break;
             }
@@ -154,7 +140,6 @@ int main(int argc, char const* argv[])
             if (!client_server_open && status != 220) {
                 // if not equal to AUTH_FAIL
                 // create a client server for peer transaction
-                int cserver_fd; // client server
                 struct sockaddr_in cserver_address;
                 int k = 0;
                 // Creating socket file descriptor
@@ -504,6 +489,30 @@ char* login_server(int socket_fd, int* login_port)
     } else
         *login_port = stoi(tmp_s);
 
+    {
+        struct sockaddr_in tmp_sin;
+        int tmp_socket;
+
+        tmp_socket = socket(AF_INET, SOCK_STREAM, 0);
+        if (tmp_socket == -1) {
+            perror("Unknown error occurred. Failed to create a socket. Now aborting.");
+            exit(EXIT_FAILURE);
+        }
+
+        tmp_sin.sin_port = htons(*login_port);
+        tmp_sin.sin_addr.s_addr = INADDR_ANY;
+        tmp_sin.sin_family = AF_INET;
+
+        if (::bind(tmp_socket, (struct sockaddr*)&tmp_sin, sizeof(struct sockaddr_in)) == -1) {
+            perror("bind failed");
+            string tmp_msg = "Couldn't allocate to port # " + to_string(*login_port);
+            char* tmp_char = new char[MAX_LENGTH];
+            strcpy(tmp_char, tmp_msg.c_str());
+            return tmp_char;
+        }
+        close(tmp_socket);
+    }
+
     strcat(snd_msg, to_string(*login_port).c_str());
     // send message to server
     int snd_byte = send(socket_fd, snd_msg, sizeof(snd_msg) + 1, 0);
@@ -542,7 +551,13 @@ char* exit_server(int socket_fd)
     char* rcv_msg = new char[MAX_LENGTH];
     send(socket_fd, exit_msg, sizeof(exit_msg) + 1, 0);
     recv(socket_fd, rcv_msg, MAX_LENGTH, 0);
+    // close(socket_fd);
     close(socket_fd);
+    // // cout << rcv_msg << endl;
+    // if (string(rcv_msg) == "Bye") {
+    // } else {
+    //     printf("Failed to close connection with the server.\n");
+    // }
     return rcv_msg;
 }
 
@@ -557,4 +572,15 @@ vector<string> split(string str, string sep)
         current = strtok(NULL, sep.c_str());
     }
     return arr;
+}
+
+void sigint_handler(sig_atomic_t s)
+{
+    printf("Single Handler: caught signal %d\n", s);
+    exit_server(server_fd);
+    // if (client_server_open) {
+    //     close(cserver_fd);
+    // }
+    printf("Session terminated.\n");
+    exit(1);
 }

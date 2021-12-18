@@ -1,7 +1,21 @@
 #pragma once
+#include <arpa/inet.h>
+#include <ctype.h>
+#include <exception>
+#include <iostream>
+#include <netdb.h>
 #include <netinet/in.h>
+#include <pthread.h>
+#include <stdbool.h>
+#include <stdexcept>
 #include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
 #include <string>
+#include <sys/socket.h>
+#include <sys/types.h>
+#include <time.h>
+#include <unistd.h>
 #include <vector>
 using namespace std;
 #define REGISTER 1
@@ -18,6 +32,12 @@ const char* man = "Usage: ./client <IP_address> <port_number>\n"
 const char* notice = "Please specify an IP address and a port number to connect to.";
 
 const char* default_program_msg = "Now running on default...";
+
+// utility
+
+void sigint_handler(sig_atomic_t s);
+
+// threads
 
 void* receive_thread(void* socket_fd);
 int receiving(int socket_fd); // taking in file descriptor
