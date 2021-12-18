@@ -59,6 +59,11 @@ cout << "\n";
 
 
 ### Trouble-shooting
+
+#### Server 
+
+Since we are using a thread pool here, all clients must disconnect before leaving the server to ensure a better shutdown process.
+
 #### IP and Port # Setup
 **On Parallels**:
 
@@ -97,8 +102,10 @@ sudo apt-get install libsqlite3-dev
 + [ ] More on sqlite C++
     + <https://github.com/fnc12/sqlite_orm>
     + <https://www.runoob.com/sqlite/sqlite-c-cpp.html>
-+ [ ] Thread and Worker Pool
++ [ ] Thread and Worker Pool - mine works between 1 and 2
     + <https://ncona.com/2019/05/using-thread-pools-in-cpp/>
+    + <https://stackoverflow.com/questions/15752659/thread-pooling-in-c11>
+    + <https://stackoverflow.com/questions/48943929/killing-thread-from-another-thread-c>
 + [ ] Handling `SIGINT`
     + <https://stackoverflow.com/questions/1641182/how-can-i-catch-a-ctrl-c-event>
 + [x] VSC not showing errors

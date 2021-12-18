@@ -366,24 +366,6 @@ void assign_port(string assigned_str, int& target_port, string name)
         close(tmp_socket);
     } else {
         target_port = stoi(assigned_str);
-        // struct sockaddr_in tmp_sin;
-        // int tmp_socket;
-
-        // tmp_socket = socket(AF_INET, SOCK_STREAM, 0);
-        // if (tmp_socket == -1) {
-        //     perror("Unknown error occurred. Failed to create a socket. Now aborting.");
-        //     exit(EXIT_FAILURE);
-        // }
-
-        // tmp_sin.sin_port = htons(target_port);
-        // tmp_sin.sin_addr.s_addr = INADDR_ANY;
-        // tmp_sin.sin_family = AF_INET;
-
-        // if (::bind(tmp_socket, (struct sockaddr*)&tmp_sin, sizeof(struct sockaddr_in)) == -1) {
-        //     perror("Unable to locate a free port. Now aborting.");
-        //     exit(EXIT_FAILURE);
-        // }
-        // close(tmp_socket);
     }
 }
 
