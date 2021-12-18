@@ -95,18 +95,18 @@ sudo apt-get install libsqlite3-dev
 
 ### ToDos and References
 
-+ [ ] Creation of a database for handling multiple input and querying
++ [x] Creation of a database for handling multiple input and querying
     + see [test.c](./test/test.c)
-+ [ ] Deletion of the database (`*.db`)
++ [x] Deletion of the database (`*.db`)
     + [Filesystem Library in `C++17`](https://stackoverflow.com/a/59424074/10871988) see [file.cpp](./test/file.cpp)
-+ [ ] More on sqlite C++
++ [x] More on sqlite C++
     + <https://github.com/fnc12/sqlite_orm>
     + <https://www.runoob.com/sqlite/sqlite-c-cpp.html>
 + [ ] Thread and Worker Pool - mine works between 1 and 2
     + <https://ncona.com/2019/05/using-thread-pools-in-cpp/>
     + <https://stackoverflow.com/questions/15752659/thread-pooling-in-c11>
     + <https://stackoverflow.com/questions/48943929/killing-thread-from-another-thread-c>
-+ [ ] Handling `SIGINT`
++ [x] Handling `SIGINT`
     + <https://stackoverflow.com/questions/1641182/how-can-i-catch-a-ctrl-c-event>
 + [x] VSC not showing errors
     + Fixed as mentioned in [this issue](https://github.com/microsoft/vscode-cpptools/issues/2164#issuecomment-399232736)
