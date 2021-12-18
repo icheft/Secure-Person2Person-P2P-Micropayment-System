@@ -2,7 +2,36 @@
 
 string Database::client_table_name = "CLIENT";
 string Database::db_name = "server.db";
-double Database::initial_balance = 10000;
+int Database::initial_balance = 10000;
+// overload
+string Database::user_list_info()
+{
+    auto online_users = this->list(true);
+    string res = "";
+    for (auto& user : online_users) {
+        res += user.username + "#" + user.ip + "#" + to_string(user.private_port) + "\n";
+    }
+    return res;
+}
+string Database::user_list_info(vector<Client> user_list)
+{
+    if (user_list.size() == 0) {
+        return "Online num:0";
+    } else {
+        /*
+        Online num:1
+        10000
+        public key
+        1
+        brian#140.112.235.41#63328
+        */
+        string res = "";
+        for (auto& user : user_list) {
+            res += user.username + "#" + user.ip + "#" + to_string(user.private_port) + "\n";
+        }
+        return res;
+    }
+}
 
 auto Database::connect()
 {
@@ -38,7 +67,8 @@ Database::Database(bool erase, bool reset)
                          "public_port     INT," // public port; assigned when login
                          "private_port    INT," // private port; assigned when login
                          "online_status   INT," // 0 or 1 default to 0
-                         "balance         NUMERIC;"; // init
+                         "balance         NUMERIC," // init
+                         "fd              INT);"; // file descriptor
 
     char sql[MAX_QUERY_LENGTH];
     sprintf(sql, query, this->client_table_name.c_str());
@@ -78,7 +108,7 @@ int Database::user_register(string username, string ip)
 {
     auto storage = this->connect();
     storage.sync_schema();
-    Client new_user { username, "", -1, -1, 0, this->initial_balance };
+    Client new_user { username, "", -1, -1, 0, this->initial_balance, -1 };
 
     auto check_user = storage.get_all<Client>(where(c(&Client::username) == username));
     if (check_user.size() >= 1) {
@@ -88,7 +118,7 @@ int Database::user_register(string username, string ip)
     return REGISTER_OK;
 }
 
-int Database::user_login(string username, string ip, int public_port, int private_port)
+int Database::user_login(string username, string ip, int public_port, int private_port, int fd)
 {
     auto storage = this->connect();
     storage.sync_schema();
@@ -106,6 +136,7 @@ int Database::user_login(string username, string ip, int public_port, int privat
             user.public_port = public_port;
             user.private_port = private_port;
             user.online_status = 1;
+            user.fd = fd;
             // Client login_user { username, ip, public_port, private_port, 1 };
             storage.update(user);
             cout << "Updated!\n";
@@ -129,6 +160,7 @@ int Database::user_logout(string ip, int public_port)
         user.public_port = -1;
         user.private_port = -1;
         user.online_status = 0;
+        user.fd = -1;
         storage.update(user);
         cout << user.username << " logged out!\n";
     }
@@ -139,7 +171,9 @@ int Database::user_transaction(string snd, string rcv, double pay)
 {
     auto storage = this->connect();
     storage.sync_schema();
-
+    if (pay <= 0) {
+        return TRANSFER_FAIL;
+    }
     auto sender_result = storage.get_all<Client>(where(c(&Client::username) == snd and c(&Client::online_status) == 1));
     auto receiver_result = storage.get_all<Client>(where(c(&Client::username) == rcv and c(&Client::online_status) == 1));
     if (sender_result.size() == 1 && receiver_result.size() == 1) {
@@ -160,12 +194,27 @@ int Database::user_transaction(string snd, string rcv, double pay)
     return TRANSFER_OK;
 }
 
-vector<Client> Database::online_list() // string ip, int public_port
+Client Database::user_info(string username)
+{
+    auto storage = this->connect();
+    storage.sync_schema();
+    return storage.get_all<Client>(where(c(&Client::username) == username))[0];
+}
+
+vector<Client> Database::list(bool online) // string ip, int public_port
 {
     auto storage = this->connect();
     storage.sync_schema();
     // auto checker = storage.get_all<Client>(where(c(&Client::ip) == ip and c(&Client::public_port) == public_port and c(&Client::online_status) == 1));
-    return storage.get_all<Client>(where(c(&Client::online_status) == 1)); // vector<Client>
+    if (online)
+        return storage.get_all<Client>(where(c(&Client::online_status) == 1)); // vector<Client>
+    else
+        return storage.get_all<Client>();
+}
+
+int Database::user_num(bool online)
+{
+    return this->list(online).size();
 }
 
 // static

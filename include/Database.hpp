@@ -16,6 +16,7 @@
 
 #define LOGIN_SUCCESS 110
 #define LOGIN_AUTH_FAIL 220
+#define LOGIN_FAIL 221
 #define LOGIN_EXIST 230
 #define USER_NOT_LOGIN 240
 
@@ -39,7 +40,8 @@ struct Client
     int public_port;
     int private_port;
     int online_status;
-    double balance;
+    int balance;
+    int fd; // when establish a connection
 };
 
 class Database
@@ -49,18 +51,22 @@ private:
     char* zErrMsg;
     int rc;
     bool erase;
-    static double initial_balance;
+    static int initial_balance;
 
 public:
     Database(bool erase = false, bool reset = false);
     ~Database();
 
     int user_register(string username, string IP);
-    int user_login(string username, string IP, int public_port, int private_port);
+    int user_login(string username, string IP, int public_port, int private_port, int fd);
     int user_logout(string IP, int public_port);
     int user_transaction(string snd, string rcv, double pay);
 
-    vector<Client> online_list(); // string IP, int public_port
+    vector<Client> list(bool online = true); // string IP, int public_port
+    Client user_info(string username);
+    int user_num(bool online = true);
+    string user_list_info(vector<Client>);
+    string user_list_info();
 
     static string client_table_name;
     static string db_name;
