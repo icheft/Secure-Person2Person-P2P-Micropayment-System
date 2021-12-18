@@ -3,6 +3,7 @@
 #include <arpa/inet.h>
 #include <condition_variable> // std::condition_variable
 #include <cstdlib> // For exit() and EXIT_FAILURE
+#include <ctpl_stl.h>
 #include <ctype.h>
 #include <exception>
 #include <iostream>
@@ -33,10 +34,17 @@ using namespace std;
 #define TRANSACTION 4
 #define EXIT 5
 #define ERR -1
+#define LIMIT 12
 
 vector<string> split(string str, string sep);
 
 void sigint_handler(sig_atomic_t s);
+
+struct Connection
+{
+    int connection;
+    string request;
+};
 
 class ThreadPool
 {
@@ -85,4 +93,4 @@ pair<int, vector<string>> parse_command(string cmd);
 
 bool is_number(const string& s, bool double_flag = false);
 
-// void process(const pair<int, string> item);
+void process_request(int id, Connection& conn);

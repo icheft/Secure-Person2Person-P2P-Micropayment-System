@@ -106,6 +106,7 @@ sudo apt-get install libsqlite3-dev
     + <https://ncona.com/2019/05/using-thread-pools-in-cpp/>
     + <https://stackoverflow.com/questions/15752659/thread-pooling-in-c11>
     + <https://stackoverflow.com/questions/48943929/killing-thread-from-another-thread-c>
+    + <https://github.com/vit-vit/ctpl>
 + [x] Handling `SIGINT`
     + <https://stackoverflow.com/questions/1641182/how-can-i-catch-a-ctrl-c-event>
 + [x] VSC not showing errors

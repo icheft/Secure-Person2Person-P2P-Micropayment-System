@@ -93,7 +93,8 @@
         "__tree": "cpp",
         "map": "cpp",
         "set": "cpp",
-        "typeindex": "cpp"
+        "typeindex": "cpp",
+        "future": "cpp"
     },
     "cmake.configureOnOpen": true,
     "emeraldwalk.runonsave": {
@@ -110,5 +111,8 @@
     "C_Cpp.default.cStandard": "c17",
     "C_Cpp.default.includePath": [
         "./include"
+    ],
+    "cSpell.words": [
+        "ctpl"
     ]
 }
