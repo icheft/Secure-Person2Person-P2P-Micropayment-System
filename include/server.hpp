@@ -9,7 +9,7 @@
 #include <netdb.h>
 #include <netinet/in.h>
 #include <pthread.h>
-#include <signal.h>
+#include <signal.h> // sigaction
 #include <stdbool.h>
 #include <stdexcept>
 #include <stdio.h>
@@ -31,7 +31,7 @@ using namespace std;
 #define TRANSACTION 4
 #define EXIT 5
 #define ERR -1
-#define LIMIT 12
+// #define LIMIT 12 // TODO: change limit dynamically
 
 vector<string> split(string str, string sep);
 
