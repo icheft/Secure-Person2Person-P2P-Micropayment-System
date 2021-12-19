@@ -95,11 +95,11 @@ Database::~Database()
     if (this->erase) {
         try {
             if (filesystem::remove(this->db_name))
-                cout << "Database " << this->db_name << " deleted.\n";
+                printf("Database %s deleted successfully.\n", this->db_name.c_str());
             else
-                cout << "Database " << this->db_name << " not found.\n";
+                printf("Database %s not found.\n", this->db_name.c_str());
         } catch (const filesystem::filesystem_error& err) {
-            cout << "Filesystem error: " << err.what() << '\n';
+            printf("Filesystem error: %s\n", err.what());
         }
     }
 }
@@ -139,7 +139,7 @@ int Database::user_login(string username, string ip, int public_port, int privat
             user.fd = fd;
             // Client login_user { username, ip, public_port, private_port, 1 };
             storage.update(user);
-            cout << "Updated!\n";
+            printf("Updated!\n");
         }
     }
     return LOGIN_SUCCESS;
@@ -162,7 +162,7 @@ int Database::user_logout(string ip, int public_port)
         user.online_status = 0;
         user.fd = -1;
         storage.update(user);
-        cout << user.username << " logged out!\n";
+        printf("%s logged out.\n", user.username.c_str());
     }
     return LOGOUT_SUCCESS;
 }
@@ -224,6 +224,6 @@ int Database::callback(void* NotUsed, int argc, char** argv, char** azColName)
     for (i = 0; i < argc; i++) {
         printf("%s = %s", azColName[i], argv[i] ? argv[i] : "NULL");
     }
-    printf("");
+    printf("\n");
     return 0;
 }

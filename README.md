@@ -60,6 +60,21 @@ cout << "\n";
 
 ### Trouble-shooting
 
+#### Environment Setup on Linux
+
++ Make sure you have your GCC version `>= 8`
+    ```sh
+    sudo add-apt-repository ppa:ubuntu-toolchain-r/test
+    sudo apt update
+    sudo apt install gcc-9 g++-9
+    sudo update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-9 60 --slave /usr/bin/g++ g++ /usr/bin/g++-9 # to make sure gcc is using the latest version of GCC
+    ```
++ Also have to install `sqlite3`
+    ```sh
+    sudo apt install sqlite3
+    sudo apt-get install libsqlite3-dev
+    ```
+
 #### Server 
 
 Since we are using a thread pool here, all clients must disconnect before leaving the server to ensure a better shutdown process.
@@ -120,10 +135,14 @@ sudo apt-get install libsqlite3-dev
         tcp4       0      0  127.0.0.1.64480                               127.0.0.1.8888                                TIME_WAIT
         ```
         <https://stackoverflow.com/questions/23915304/how-to-avoid-time-wait-for-server-sockets>
-+ [ ] cmd
++ [ ] cmd args
     + <https://github.com/mirror/tclap>
     + <https://github.com/vietjtnguyen/argagg>
-+ [ ] makefile
++ [ ] Makefile: Nicer linkage
     + <https://stackoverflow.com/questions/451413/make-makefile-progress-indication>
     + <https://stackoverflow.com/a/16945143/10871988>
     + <https://www.gnu.org/software/make/manual/make.html>
++ [x] Catch SIGPIPE from sudden death of a client
+    + <https://stackoverflow.com/questions/61688091/catching-client-exit-from-server-on-socket-programing>
+    + <https://stackoverflow.com/questions/26752649/so-nosigpipe-was-not-declared>
+    + <https://stackoverflow.com/questions/18935446/program-received-signal-sigpipe-broken-pipe/18963142>
