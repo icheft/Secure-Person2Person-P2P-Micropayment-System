@@ -1,0 +1,226 @@
+---
+title: "A Secure Person2Person (P2P) Micropayment System - Server User Manual"
+author: [Brian Li-Hsuan Chen (B07705031)]
+date: \today
+subject: "IM 3010"
+keywords: [IM3010, SocketProgramming]
+subtitle: "IM 3010 Programming Assignment: Phase 02 Implementation"
+titlepage: true
+titlepage-rule-color: 198964
+titlepage-background: docs/background5.pdf
+CJKmainfont: "Source Han Sans TC"
+toc: true
+---
+
+<!-- 上傳繳交的部份包含以下四項；1.2.3.Binary 執行檔（已Compile 及Linking 完成並可執行的Client 端程式）。4.用以編譯程式之Makefile。請將上述四項檔案壓縮成：學號_part1.tar.gz (e.g. b027050xx_part1.tar.gz)，上傳至NTU COOL 平台課程作業區 -->
+
+<!-- DONE -->
+
+## Introduction
+
+In **Phase 02**, we are asked to implement a server-side program to handle requests sent by clients in the Micropayment System. Functions for a server-side program include *registering*, *login*, *listing*, *transacting*, and *exiting*. Simply start running the program by `./server <SERVER_PORT> <CONCURRENT_USER_LIMIT>` after compilation (which can be done by `make server`).
+
+The user manual will cover the running environment used when developing the program, the environment that this code could be used in, the usage of the server-side program, the compilation, and the references when doing this assignment.
+
+
+<!-- TODO: check if the linux part is true -->
+
+## Environment
+
+### macOS
+
+The environment used to develop this project is:
+
+> Operating System: macOS 12.0.1  
+> CPP Standard: C++17
+
+It means that **you can run this program in a macOS environment** if the program is also compiled in the exact environment.
+
+`C++17` is used to serve the standard library header `filesystem` used when creating/deleting a database file.
+
+I am using `sqlite3` to handle user profiles on *the backend*. By default, `sqlite3` is pre-installed in all versions of macOS[^sql].
+
+[^sql]: [How to install SQLite on macOS](https://flaviocopes.com/sqlite-how-to-install/)
+
+### Ubuntu
+
+For the given `server` binary, you can run it on:
+
+> Operating System: Ubuntu 20.04  
+> CPP Standard: C++17
+
+
+To compile, **you may need to install some extra dependencies/packages** on your system:
+
+1. Make sure your GCC version is up-to-date (GCC 9-ish) to support `C++17`
+
+    ```sh
+    sudo add-apt-repository ppa:ubuntu-toolchain-r/test
+    sudo apt update
+    sudo apt install gcc-9 g++-9
+    sudo update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-9 60 --slave /usr/bin/g++ g++ /usr/bin/g++-9 # to make sure gcc is using the latest version of GCC
+    ```
+2. Install `sqlite3` (you can see why in the [References](#references) section)
+
+    ```sh
+    sudo apt install sqlite3
+    sudo apt-get install libsqlite3-dev
+    ```
+
+
+I am testing out the Linux-formatted `server` binary on [Karton](https://karton.github.io) from my MacBook. Karton is developed based on Docker containers. The code is also tested on Ubuntu 20.04 virtual box. 
+
+**Notice that the user interface requires [Nerd Fonts](https://github.com/ryanoasis/nerd-fonts) to render**.
+
+
+<!-- TODO: add screenshots -->
+
+## Usage
+
+### Running Server Program
+
+
+Before running the `client` program, you have to make sure that the `server` is running. You can start the server on port 8888 and limited to a maximum of three concurrent connected clients by running:
+
+```sh
+./server 8888 3
+```
+
+The basic usage is: `./server <SERVER_PORT> <CONCURRENT_USER_LIMIT>`.
+
+<!-- ![](docs/img/2021-12-10-01-04-52.png) -->
+
+And that is simply it. You can have a glimpse of what is going on in the server by peeking into the `server.db` file via `sqlite3` simply by typing in:
+
+```sh
+sqlite3 server.db
+```
+
+and you shall get access to the database with a table named `client` that stores all user data, including users' connection states.
+
+
+
+### Terminating Server Program
+
+To terminate the server, you will have to `CTRL + C` while the server is running. Signal handling is implemented so that you can do it safely.
+
+The termination of the server will also cause the deletion of the db file `server.db`. The settings for not deleting the database can only be modified from the source code at `src/Database.cpp`.
+
+### Running Client Program
+
+If you are testing out the client program on your localhost:
+
+```sh
+./client 127.0.0.1 8888
+```
+
+Otherwise, you will have to figure out the right server IP address and the port the server is listening on.
+
+The basic usage is: `./client <SERVER_IP> <SERVER_PORT>`.
+
+### Exiting Client Program
+
+You can exit a client using two methods: 
+
+1. Typing in `5` to *properly tell the server you are to exit* and quit the session peacefully, or
+2. Hitting `CTRL + C` to forcefully terminate the session; `server` will handle the error accordingly.
+
+
+
+## How to Compile
+
+You can start the program already by typing `./server <SERVER_PORT> <CONCURRENT_USER_LIMIT>` into your terminal if you are on a Linux distribution (*Ubuntu* is used for testing) or on a macOS.
+
+To rebuild the program, on either **macOS** or a **Linux** system, make sure to install the dependencies first before you run `make server` in the terminal app.
+
+It will take a bit longer to compile `server` as compared to `client` since it is linking much more powerful and bigger libraries (`-lsqlite3` for using database). 
+
+If `server` binary already exists, you may want to run `make clean` first to remove the file.
+
+### Compiling Client and Server
+
+You can simply start off by doing:
+
+```sh
+make clean && make
+```
+
+You shall see the following output on your terminal:
+
+```
+client and server binaries are now removed.
+ [33%] Compiling client
+ [66%] Compiling server
+ [100%] All done
+Type "./server <PORT> <LIMIT>" to start the server
+Type "./client <SERVER_IP> <SERVER_PORT>" to start the client.
+(Or type "make clean" to clean the binaries)
+```
+
+**Notice that you will need to have the dependencies installed first if you are using Linux**.
+
+<!-- DONE -->
+
+## References
+
+
+### Server-side Implementation
+
++ [x] Creation of a **database** for handling multiple input and querying
+
+    Background: As far as I know, handling simultaneous reads and writes can be a hassle when implemented manually. I consulted to my friends studying CSIE, and they also believe using a database could be a more practical and reasonable way to implement such querying function.
+
+    I looked it up and find out that `sqlite` integrates so well with C/C++. `sqlite` can drive a db of up to 140TB, allows multiple simultaneous reads and, like other databases stores data in files on disk.
+
+    Though for our use case, the need for a database is unnecessary due to the fact that we are only opening to **few users** (3) at a time, I still feel this urge to learn how to implement one for this project. 
++ [x] Deletion of the database (`*.db`)
+    + [Filesystem Library in `C++17`](https://stackoverflow.com/a/59424074/10871988) at <https://stackoverflow.com/a/59424074/10871988>
++ [x] More on sqlite C++
+    + <https://github.com/fnc12/sqlite_orm> → I am using this
+    + <https://www.runoob.com/sqlite/sqlite-c-cpp.html>
++ [x] Thread and Worker Pool
+    + <https://ncona.com/2019/05/using-thread-pools-in-cpp/> - a very good article explaining how to use thread pools
+    + <https://stackoverflow.com/questions/15752659/thread-pooling-in-c11>
+    + <https://stackoverflow.com/questions/48943929/killing-thread-from-another-thread-c>
+    + [x] <https://github.com/vit-vit/ctpl> → I am using this
++ [x] Handling `SIGINT`
+    + <https://stackoverflow.com/questions/1641182/how-can-i-catch-a-ctrl-c-event>
++ [x] `TIME WAIT`
+    
+    Background: `server` could not close connection after the socket is closed:
+
+    ```sh
+    sudo netstat -tanl | grep 8888
+    ```
+    ```
+    tcp4       0       0       127.0.0.1.64480       127.0.0.1.8888       TIME_WAIT
+    ```
+    <https://stackoverflow.com/questions/23915304/how-to-avoid-time-wait-for-server-sockets>
++ [x] Catch SIGPIPE from sudden death of a client
+    + <https://stackoverflow.com/questions/61688091/catching-client-exit-from-server-on-socket-programing>
+    + <https://stackoverflow.com/questions/26752649/so-nosigpipe-was-not-declared>
+    + <https://stackoverflow.com/questions/18935446/program-received-signal-sigpipe-broken-pipe/18963142>
+
+
+### Client-side Implementation
+
+(from phase01)
+
++ Repositories
+    + [Learn Network Protocol and Programming Using C](https://github.com/apsrcreatix/Socket-Programming-With-C) at <https://github.com/apsrcreatix/Socket-Programming-With-C>
+    + [Peer to peer program in C](https://github.com/um4ng-tiw/Peer-to-Peer-Socket-C) at <https://github.com/um4ng-tiw/Peer-to-Peer-Socket-C>
+    + [C Multithreaded Client-Server](https://github.com/RedAndBlueEraser/c-multithreaded-client-server) at <https://github.com/RedAndBlueEraser/c-multithreaded-client-server>
+    + [Socket programming examples in C++](https://github.com/zappala/socket-programming-examples-c) at <https://github.com/zappala/socket-programming-examples-c>
++ Others
+    + [Parse (split) a string in C++ using string delimiter (standard C++)](https://stackoverflow.com/a/14266139/10871988) at <https://stackoverflow.com/a/14266139/10871988>
+    + [Finding Unused Port in C++](https://stackoverflow.com/a/1107242/10871988) at <https://stackoverflow.com/a/1107242/10871988>
+    + [Unix Specification (link to `bind()`)](https://pubs.opengroup.org/onlinepubs/007908799/xns/bind.html) at <https://pubs.opengroup.org/onlinepubs/007908799/xns/bind.html>, but of course many more functions are looked up
+    + [Port Forwarding for a Docker Container](https://docs.docker.com/config/containers/container-networking/) at <https://docs.docker.com/config/containers/container-networking/>
+    + [Karton for not running on virtual machine](https://karton.github.io) at <https://karton.github.io>
+
+
+### User Manual
+
+(from phase01)
+
++ [Eisvogel](https://github.com/Wandmalfarbe/pandoc-latex-template) at <https://github.com/Wandmalfarbe/pandoc-latex-template>

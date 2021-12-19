@@ -105,7 +105,7 @@ sudo apt-get install libsqlite3-dev
 
 **macOS**:
 
-`sqlite` is pre-installed on macOS.
+`sqlite3` is pre-installed on macOS.
 
 
 ### ToDos and References
