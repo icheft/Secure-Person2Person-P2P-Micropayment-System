@@ -113,6 +113,9 @@ sudo apt-get install libsqlite3-dev
     + Fixed as mentioned in [this issue](https://github.com/microsoft/vscode-cpptools/issues/2164#issuecomment-399232736)
 + [x] `TIME WAIT`
     + Background: Server couldn't close connection after the socket is closed:
+        ```sh
+        sudo netstat -tanl | grep 8888
+        ```
         ```
         tcp4       0      0  127.0.0.1.64480                               127.0.0.1.8888                                TIME_WAIT
         ```
@@ -123,3 +126,4 @@ sudo apt-get install libsqlite3-dev
 + [ ] makefile
     + <https://stackoverflow.com/questions/451413/make-makefile-progress-indication>
     + <https://stackoverflow.com/a/16945143/10871988>
+    + <https://www.gnu.org/software/make/manual/make.html>
