@@ -1,4 +1,19 @@
 #pragma once
+#include <sys/socket.h>
+#ifdef __APPLE__
+// #define sth for apple
+#define RECV_SIGNAL SO_NOSIGPIPE
+#elif __linux
+// linux
+#define RECV_SIGNAL MSG_NOSIGNAL
+#elif __unix // all unices not caught above
+// Unix
+#define RECV_SIGNAL 0
+#elif __posix
+// POSIX
+#define RECV_SIGNAL 0
+#endif
+
 #include "Database.hpp"
 #include <arpa/inet.h>
 #include <cstdlib> // For exit() and EXIT_FAILURE
@@ -16,7 +31,6 @@
 #include <stdlib.h>
 #include <string.h>
 #include <string>
-#include <sys/socket.h>
 #include <sys/types.h>
 #include <thread>
 #include <time.h>
@@ -36,6 +50,7 @@ using namespace std;
 vector<string> split(string str, string sep);
 
 void sigint_handler(sig_atomic_t s);
+void sigpipe_handler(int unused);
 
 // struc to be pass into threadpool
 struct Connection

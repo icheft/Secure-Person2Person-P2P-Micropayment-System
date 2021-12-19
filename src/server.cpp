@@ -22,6 +22,12 @@ int main(int argc, char const* argv[])
         printf("Failed to caught signal\n");
     }
 
+    struct sigaction sg;
+    sg.sa_handler = sigpipe_handler;
+    sigemptyset(&sg.sa_mask);
+    sg.sa_flags = SA_RESTART;
+    sigaction(SIGPIPE, &sg, NULL);
+
     // Thread pool
 
     auto num_of_threads = thread::hardware_concurrency();
@@ -167,6 +173,12 @@ void sigint_handler(sig_atomic_t s)
     exit(1);
 }
 
+void sigpipe_handler(int unused)
+{
+    printf("Caught signal %d\n", unused);
+    printf("Something is written to a pipe where nothing is read from anymore. A user may just be gone.\n");
+}
+
 vector<string> split(string str, string sep)
 {
     char* cstr = const_cast<char*>(str.c_str());
@@ -249,9 +261,12 @@ void process_request(int id, Connection& conn)
     while (true && connection && !termination_flag) {
         // Read from the connection
         char buffer[2048];
-        int tmp_byte_read = recv(connection, buffer, sizeof(buffer), 0);
-        // string request = buffer ;
+        int tmp_byte_read = recv(connection, buffer, sizeof(buffer), 0); // RECV_SIGNAL
         string raw(buffer);
+
+        if (tmp_byte_read == -1 || raw.empty()) {
+            break;
+        }
 
         sprintf(display_msg, "→ [%s] from %s@%d\n", raw.c_str(), clientip, clientport);
 
@@ -352,8 +367,8 @@ void process_request(int id, Connection& conn)
 
             // close the connection with this user
             printf("Online num:%d\n", online_num);
-            close(connection);
-            shutdown(connection, SHUT_RDWR);
+            // close(connection);
+            // shutdown(connection, SHUT_RDWR);
             break;
         }
         default: {
@@ -368,5 +383,8 @@ void process_request(int id, Connection& conn)
             break;
         }
     }
+    printf("Drop connection with %s@%d\n", clientip, clientport);
+    close(connection);
+    shutdown(connection, SHUT_RDWR);
     return;
 }
