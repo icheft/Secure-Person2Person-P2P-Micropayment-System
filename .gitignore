@@ -11,6 +11,7 @@ test/*.db
 test/tmp*
 test/host*
 test/*.out
+test/*.html
 
 p2p
 bt

@@ -102,12 +102,24 @@ sudo apt-get install libsqlite3-dev
 + [x] More on sqlite C++
     + <https://github.com/fnc12/sqlite_orm>
     + <https://www.runoob.com/sqlite/sqlite-c-cpp.html>
-+ [ ] Thread and Worker Pool - mine works between 1 and 2
++ [x] Thread and Worker Pool - mine works between 1 and 2
     + <https://ncona.com/2019/05/using-thread-pools-in-cpp/>
     + <https://stackoverflow.com/questions/15752659/thread-pooling-in-c11>
     + <https://stackoverflow.com/questions/48943929/killing-thread-from-another-thread-c>
-    + <https://github.com/vit-vit/ctpl>
+    + [x] <https://github.com/vit-vit/ctpl>
 + [x] Handling `SIGINT`
     + <https://stackoverflow.com/questions/1641182/how-can-i-catch-a-ctrl-c-event>
 + [x] VSC not showing errors
     + Fixed as mentioned in [this issue](https://github.com/microsoft/vscode-cpptools/issues/2164#issuecomment-399232736)
++ [x] `TIME WAIT`
+    + Background: Server couldn't close connection after the socket is closed:
+        ```
+        tcp4       0      0  127.0.0.1.64480                               127.0.0.1.8888                                TIME_WAIT
+        ```
+        <https://stackoverflow.com/questions/23915304/how-to-avoid-time-wait-for-server-sockets>
++ [ ] cmd
+    + <https://github.com/mirror/tclap>
+    + <https://github.com/vietjtnguyen/argagg>
++ [ ] makefile
+    + <https://stackoverflow.com/questions/451413/make-makefile-progress-indication>
+    + <https://stackoverflow.com/a/16945143/10871988>
