@@ -13,8 +13,6 @@ int current_user = 0;
 int main(int argc, char const* argv[])
 {
     // handler
-    // signal(SIGINT, sigint_handler);
-
     struct sigaction sa;
     sa.sa_handler = sigint_handler;
     sigemptyset(&sa.sa_mask);
@@ -41,10 +39,18 @@ int main(int argc, char const* argv[])
     }
 
     int server_port;
+    int LIMIT = num_of_threads;
 
     switch (argc) {
     case 2: {
         assign_port(string(argv[1]), server_port);
+        printf("User limit is now set to default: %d\n", LIMIT);
+        break;
+    }
+    case 3: {
+        assign_port(string(argv[1]), server_port);
+        LIMIT = atoi(argv[2]) <= num_of_threads ? atoi(argv[2]) : num_of_threads;
+        printf("User limit is now set to %d\n", LIMIT);
         break;
     }
     default: {
@@ -52,11 +58,12 @@ int main(int argc, char const* argv[])
         printf("Probing for an available port...\n");
         // default
         assign_port("0", server_port);
+        printf("User limit is now set to default: %d\n", LIMIT);
         break;
     }
     }
 
-    cout << "Server listening on port " << server_port << endl;
+    printf("Server listening on port %d\n", server_port);
 
     // Listen to a port
     struct sockaddr_in sockaddr;
@@ -65,13 +72,13 @@ int main(int argc, char const* argv[])
     sockaddr.sin_port = htons(server_port);
 
     if (::bind(socket_fd, (struct sockaddr*)&sockaddr, sizeof(sockaddr)) < 0) {
-        cout << "Failed to bind to port " << server_port << ". errno: " << errno << endl;
+        perror("bind failed");
         exit(EXIT_FAILURE);
     }
 
     // Start listening
     if (listen(socket_fd, 5) < 0) {
-        cout << "Failed to listen on socket. errno: " << errno << endl;
+        perror("listen");
         exit(EXIT_FAILURE);
     }
 
@@ -85,7 +92,7 @@ int main(int argc, char const* argv[])
             continue;
         int connection = accept(socket_fd, (struct sockaddr*)&sockaddr, (socklen_t*)&addrlen);
         if (connection < 0) {
-            cout << "Failed to grab connection. errno: " << errno << endl;
+            perror("Failed to grab connection");
             exit(EXIT_FAILURE);
         } else {
             // TODO connection limit
@@ -155,8 +162,8 @@ void sigint_handler(sig_atomic_t s)
     }
 
     termination_flag = true; // danger
-    // TODO: delete all thread
     delete db;
+    // NOTE: threads will be handled by ctpl
     exit(1);
 }
 
@@ -328,7 +335,6 @@ void process_request(int id, Connection& conn)
                     break;
                 }
             }
-            // cout << "sender fd: " << sender.fd << " vs. " << *sender_fd << endl;
             send(*sender_fd, response.c_str(), response.size(), 0);
             break;
         }
@@ -343,13 +349,11 @@ void process_request(int id, Connection& conn)
                     break;
                 }
             }
-            // close connection with this user
-            // Close the connection
+
+            // close the connection with this user
             printf("Online num:%d\n", online_num);
             close(connection);
-
-            shutdown(connection, SHUT_RDWR); // FIXME: THE TIME_WAIT thing: tcp4       0      0  127.0.0.1.64480                               127.0.0.1.8888                                TIME_WAIT
-            // REF: https://stackoverflow.com/questions/23915304/how-to-avoid-time-wait-for-server-sockets
+            shutdown(connection, SHUT_RDWR);
             break;
         }
         default: {

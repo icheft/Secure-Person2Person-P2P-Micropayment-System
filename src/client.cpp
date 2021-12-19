@@ -34,7 +34,14 @@ class not_found_error : public exception
 int main(int argc, char const* argv[])
 {
     // handler
-    signal(SIGINT, sigint_handler);
+    struct sigaction sa;
+    sa.sa_handler = sigint_handler;
+    sigemptyset(&sa.sa_mask);
+    sa.sa_flags = SA_RESTART;
+
+    if (sigaction(SIGINT, &sa, NULL) == -1) {
+        printf("Failed to caught signal\n");
+    }
 
     // initialization
     switch (argc) {
