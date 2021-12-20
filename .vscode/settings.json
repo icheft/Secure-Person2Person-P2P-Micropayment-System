@@ -104,6 +104,12 @@
                 "match": "\\phase[0-9][0-9].md$",
                 "isAsync": true,
                 "cmd": "sh build.sh ${relativeFile} ${fileBasenameNoExt}"
+            },
+            {
+                // run phase01 document
+                "match": "\\phase[0-9][0-9]-\\w+.md$",
+                "isAsync": true,
+                "cmd": "sh build.sh ${relativeFile} ${fileBasenameNoExt}"
             }
         ]
     },
