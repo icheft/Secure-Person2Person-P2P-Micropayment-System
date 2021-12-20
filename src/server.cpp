@@ -35,7 +35,7 @@ int main(int argc, char const* argv[])
         num_of_threads = 1;
     }
 
-    ctpl::thread_pool thread_pool(num_of_threads);
+    // wait for user input, then determine how many number of threads to create
 
     // Create a socket
     socket_fd = socket(AF_INET, SOCK_STREAM, 0);
@@ -69,6 +69,8 @@ int main(int argc, char const* argv[])
     }
     }
 
+    ctpl::thread_pool thread_pool(LIMIT);
+
     printf("Server listening on port %d\n", server_port);
 
     // Listen to a port
@@ -94,8 +96,8 @@ int main(int argc, char const* argv[])
     while (true) {
         // Grab a connection from the queue
         auto addrlen = sizeof(sockaddr);
-        if (current_user >= LIMIT)
-            continue;
+        // if (current_user >= LIMIT)
+        //     continue;
         int connection = accept(socket_fd, (struct sockaddr*)&sockaddr, (socklen_t*)&addrlen);
         if (connection < 0) {
             perror("Failed to grab connection");
@@ -110,7 +112,6 @@ int main(int argc, char const* argv[])
         // const pair<int, string> query = pair<int, string>(connection, request);
         Connection conn { connection, request };
         thread_pool.push(process_request, conn);
-        current_user++;
     }
 
     close(socket_fd);
@@ -236,6 +237,7 @@ void process_request(int id, Connection& conn)
     }
 
     // after the connection is given
+    current_user++;
     int connection = conn.connection;
 
     struct sockaddr_in addr;
@@ -253,6 +255,7 @@ void process_request(int id, Connection& conn)
                          "  Client Port: %d\n",
         clientip, clientport);
     printf("%s\n", display_msg);
+    printf("Connected clients num: %d\n", current_user);
     string username = "";
 
     while (true && connection && !termination_flag) {
@@ -387,12 +390,11 @@ void process_request(int id, Connection& conn)
         }
         }
 
-        if (cmd_type == EXIT) {
-            current_user--;
+        if (cmd_type == EXIT)
             break;
-        }
     }
     printf("Drop connection with %s@%d\n", clientip, clientport);
+    printf("Connected clients num: %d\n", --current_user);
     close(connection);
     shutdown(connection, SHUT_RDWR);
     return;
