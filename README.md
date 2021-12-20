@@ -34,7 +34,7 @@
         + [IP and Port # Setup](#ip-and-port--setup)
         + [`sqlite3`](#sqlite3)
     + [ToDos and References](#todos-and-references)
-
+    
 <!-- DONE -->
 
 ## Introduction
@@ -75,19 +75,19 @@ For the given `server` binary, you can run it on:
 
 To compile, **you may need to install some extra dependencies/packages** on your system:
 
-1. Make sure your GCC version is up-to-date (GCC 9-ish) to support `C++17`
+1. Install `sqlite3` (you can see why in the [References](#references) section)
+
+    ```sh
+    sudo apt install sqlite3
+    sudo apt-get install libsqlite3-dev
+    ```
+2. Make sure your GCC version is up-to-date (GCC 9-ish) to support `C++17` (**please ignore this if you did not mess up with your environment**)
 
     ```sh
     sudo add-apt-repository ppa:ubuntu-toolchain-r/test
     sudo apt update
     sudo apt install gcc-9 g++-9
     sudo update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-9 60 --slave /usr/bin/g++ g++ /usr/bin/g++-9 # to make sure gcc is using the latest version of GCC
-    ```
-2. Install `sqlite3` (you can see why in the [References](#references) section)
-
-    ```sh
-    sudo apt install sqlite3
-    sudo apt-get install libsqlite3-dev
     ```
 
 
