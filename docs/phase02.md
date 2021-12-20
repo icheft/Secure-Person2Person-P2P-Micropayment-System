@@ -20,6 +20,8 @@ toc: true
 
 In **Phase 02**, we are asked to implement a server-side program to handle requests sent by clients in the Micropayment System. Functions for a server-side program include *registering*, *login*, *listing*, *transacting*, and *exiting*. Simply start running the program by `./server <SERVER_PORT> <CONCURRENT_USER_LIMIT>` after compilation (which can be done by `make server`).
 
+`CONCURRENT_USER_LIMIT` is completely optional. The maximum is set to the number of concurrent threads supported by the implementation.
+
 The user manual will cover the running environment used when developing the program, the environment that this code could be used in, the usage of the server-side program, the compilation, and the references when doing this assignment.
 
 
@@ -73,9 +75,19 @@ I am testing out the Linux-formatted `server` binary on [Karton](https://karton.
 **Notice that the user interface requires [Nerd Fonts](https://github.com/ryanoasis/nerd-fonts) to render**.
 
 
-<!-- TODO: add screenshots -->
+<!-- DONE: add screenshots -->
 
 ## Usage
+
+**TL;DR**:  
+
+```sh
+./server <SERVER_PORT> <[OPTIONAL] CONCURRENT_USER_LIMIT>
+```
+
+```sh
+./client <SERVER_IP> <SERVER_PORT>
+```
 
 ### Running Server Program
 
@@ -86,9 +98,12 @@ Before running the `client` program, you have to make sure that the `server` is 
 ./server 8888 3
 ```
 
+Here is a look of the above command:
+
+![](docs/img/2021-12-20-22-10-52.png)
+
 The basic usage is: `./server <SERVER_PORT> <CONCURRENT_USER_LIMIT>`.
 
-<!-- ![](img/2021-12-10-01-04-52.png) -->
 
 And that is simply it. You can have a glimpse of what is going on in the server by peeking into the `server.db` file via `sqlite3` simply by typing in:
 
@@ -98,7 +113,76 @@ sqlite3 server.db
 
 and you shall get access to the database with a table named `client` that stores all user data, including users' connection states.
 
+So together with `sqlite3`, you will be able to gain access to the database and keep the server running at the same time:
 
+![](docs/img/2021-12-20-22-33-31.png)
+
+
+### Working Server
+
+The server will always throw out `[<CLIENT_MSG>] from <CLIENT_PORT>@<CLIENT_PUBLIC_PORT>` when a message is received from a client.
+
+#### When Clients Connect to Server
+
+When a client connects to the server, it will show IP address and port of that client. 
+
+The following screenshots show how three clients connect to the server listening on port 8888:
+
+![](docs/img/2021-12-20-22-25-31.png)
+
+![](docs/img/2021-12-20-22-25-46.png)
+
+#### User Registration
+
+When a user registers, you shall also see an update directly within the database.
+
+![](docs/img/2021-12-20-22-45-03.png)
+
+If a user already registered, the server will return `210 FAIL` to the client.
+
+#### User Login
+
+You see that the server recorded IP address, public port, private port (the port specified by the logged in client as shown in `[brian#57609]`).
+
+![](docs/img/2021-12-20-22-47-06.png)
+
+I will log in with three users on three clients in the rest of the demonstration.
+
+#### Information Listing
+
+A user must log in before requesting for system information. A message `Please login first` will be sent to the client if the session is not logged in. 
+
+Otherwise, it will show the system information to the user as specified in the assignment specification.
+
+#### P2P Transaction
+
+As can be seen below, the `[brian#2000#ta]` message indicates that user `brian` transfers 2000 dollars to `ta`. 
+
+![](docs/img/2021-12-20-23-01-23.png)
+
+
+You can also see that the database is updated accordingly.
+
+#### User Logout
+
+There might be three cases:
+
+**When a user logs out**:  
+
+The server will prompt *who* logs out.
+
+![](docs/img/2021-12-20-23-06-18.png)
+
+**When a client exits properly**:  
+
+![](docs/img/2021-12-20-23-09-12.png)
+
+
+**When a client terminates suddenly (and returns a `SIGPIPE`)**:  
+
+This is not really possible since the client is well implemented. But if it does, server will handle:
+
+![](docs/img/2021-12-20-23-32-49.png)
 
 ### Terminating Server Program
 
@@ -106,7 +190,12 @@ To terminate the server, you will have to `CTRL + C` while the server is running
 
 The termination of the server will also cause the deletion of the db file `server.db`. The settings for not deleting the database can only be modified from the source code at `src/Database.cpp`.
 
+![](docs/img/2021-12-20-23-19-37.png)
+
+
 ### Running Client Program
+
+For the client part, I won't show the screenshot in this documentation again; you can see the demos/screenshots in *Phase 01 User Manual*.
 
 If you are testing out the client program on your localhost:
 
@@ -118,6 +207,7 @@ Otherwise, you will have to figure out the right server IP address and the port 
 
 The basic usage is: `./client <SERVER_IP> <SERVER_PORT>`.
 
+
 ### Exiting Client Program
 
 You can exit a client using two methods: 
@@ -126,8 +216,12 @@ You can exit a client using two methods:
 2. Hitting `CTRL + C` to forcefully terminate the session; `server` will handle the error accordingly.
 
 
+<!-- DONE -->
+
 
 ## How to Compile
+
+### Compiling Server Only
 
 You can start the program already by typing `./server <SERVER_PORT> <CONCURRENT_USER_LIMIT>` into your terminal if you are on a Linux distribution (*Ubuntu* is used for testing) or on a macOS.
 
@@ -137,6 +231,10 @@ It will take a bit longer to compile `server` as compared to `client` since it i
 
 If `server` binary already exists, you may want to run `make clean` first to remove the file.
 
+If done properly, you should see the following output:
+
+![](docs/img/2021-12-20-22-09-06.png)
+
 ### Compiling Client and Server
 
 You can simply start off by doing:
@@ -145,17 +243,9 @@ You can simply start off by doing:
 make clean && make
 ```
 
-You shall see the following output on your terminal:
+If no errors occur, you shall see the following output on your terminal:
 
-```
-client and server binaries are now removed.
- [33%] Compiling client
- [66%] Compiling server
- [100%] All done
-Type "./server <PORT> <LIMIT>" to start the server
-Type "./client <SERVER_IP> <SERVER_PORT>" to start the client.
-(Or type "make clean" to clean the binaries)
-```
+![](docs/img/2021-12-20-22-05-34.png)
 
 **Notice that you will need to have the dependencies installed first if you are using Linux**.
 
