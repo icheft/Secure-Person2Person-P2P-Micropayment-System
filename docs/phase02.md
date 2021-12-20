@@ -221,6 +221,8 @@ You can exit a client using two methods:
 
 ## How to Compile
 
+**Notice that you will need to have the [dependencies installed](#ubuntu) first if you are using Linux**. Please click [here](#ubuntu) if you miss the part.
+
 ### Compiling Server Only
 
 You can start the program already by typing `./server <SERVER_PORT> <CONCURRENT_USER_LIMIT>` into your terminal if you are on a Linux distribution (*Ubuntu* is used for testing) or on a macOS.
@@ -247,7 +249,6 @@ If no errors occur, you shall see the following output on your terminal:
 
 ![](docs/img/2021-12-20-22-05-34.png)
 
-**Notice that you will need to have the dependencies installed first if you are using Linux**.
 
 <!-- DONE -->
 
