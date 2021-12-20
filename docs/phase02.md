@@ -23,7 +23,7 @@ In **Phase 02**, we are asked to implement a server-side program to handle reque
 The user manual will cover the running environment used when developing the program, the environment that this code could be used in, the usage of the server-side program, the compilation, and the references when doing this assignment.
 
 
-<!-- TODO: check if the linux part is true -->
+<!-- TODO: check if the linux part is true @ Michael-->
 
 ## Environment
 
@@ -88,7 +88,7 @@ Before running the `client` program, you have to make sure that the `server` is 
 
 The basic usage is: `./server <SERVER_PORT> <CONCURRENT_USER_LIMIT>`.
 
-<!-- ![](docs/img/2021-12-10-01-04-52.png) -->
+<!-- ![](img/2021-12-10-01-04-52.png) -->
 
 And that is simply it. You can have a glimpse of what is going on in the server by peeking into the `server.db` file via `sqlite3` simply by typing in:
 

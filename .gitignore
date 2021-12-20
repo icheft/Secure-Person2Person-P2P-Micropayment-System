@@ -23,6 +23,7 @@ sp-ubuntu-devel-image/
 *.tar.gz
 *.zip
 docs/*-doc.pdf
+docs/*-draft.*
 archive/
 
 
