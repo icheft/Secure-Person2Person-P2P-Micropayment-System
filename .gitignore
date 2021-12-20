@@ -26,7 +26,7 @@ docs/*-doc.pdf
 docs/*-draft.*
 archive/
 
-docs/img/2021-12-20*
+# docs/img/2021-12-20*
 
 
 # Created by https://www.toptal.com/developers/gitignore/api/macos,linux,c++,qt,qtcreator,vim,latex,python,c,cmake,zsh
