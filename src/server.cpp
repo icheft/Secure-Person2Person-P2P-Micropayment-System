@@ -100,9 +100,6 @@ int main(int argc, char const* argv[])
         if (connection < 0) {
             perror("Failed to grab connection");
             exit(EXIT_FAILURE);
-        } else {
-            // TODO connection limit
-            // pass
         }
 
         string request = "init";
@@ -265,6 +262,18 @@ void process_request(int id, Connection& conn)
         string raw(buffer);
 
         if (tmp_byte_read == -1 || raw.empty()) {
+            int status = db->user_logout(clientip, clientport);
+
+            int online_num = db->user_num();
+            for (int i = 0; i < client_fds.size(); i++) {
+                if (client_fds[i].first == username) {
+                    client_fds.erase(client_fds.begin() + i);
+                    break;
+                }
+            }
+
+            // close the connection with this user
+            printf("Online num:%d\n", online_num);
             break;
         }
 
