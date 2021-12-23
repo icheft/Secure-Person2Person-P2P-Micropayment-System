@@ -9,6 +9,7 @@ const int connection_limit = 10;
 string public_key = "public_key";
 vector<pair<string, int*>> client_fds;
 int current_user = 0;
+int tmp_current_user = 0;
 
 int main(int argc, char const* argv[])
 {
@@ -99,6 +100,20 @@ int main(int argc, char const* argv[])
         // if (current_user >= LIMIT)
         //     continue;
         int connection = accept(socket_fd, (struct sockaddr*)&sockaddr, (socklen_t*)&addrlen);
+        tmp_current_user++;
+        if (tmp_current_user > LIMIT) {
+            printf("%d users attempting to connect. %d users might have to wait.\n", tmp_current_user, tmp_current_user - current_user);
+
+            // TODO: there should be a wait list
+            // TODO: maybe create another table called wait
+            // struct sockaddr_in addr;
+            // socklen_t addr_size = sizeof(struct sockaddr_in);
+            // int res = getpeername(connection, (struct sockaddr*)&addr, &addr_size);
+            // char* clientip = new char[20];
+            // int clientport;
+            // strcpy(clientip, inet_ntoa(addr.sin_addr));
+            // clientport = ntohs(addr.sin_port);
+        }
         if (connection < 0) {
             perror("Failed to grab connection");
             exit(EXIT_FAILURE);
@@ -395,6 +410,7 @@ void process_request(int id, Connection& conn)
     }
     printf("Drop connection with %s@%d\n", clientip, clientport);
     printf("Connected clients num: %d\n", --current_user);
+    --tmp_current_user;
     close(connection);
     shutdown(connection, SHUT_RDWR);
     return;

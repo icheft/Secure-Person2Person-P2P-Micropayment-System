@@ -41,7 +41,7 @@ struct Client
     int private_port;
     int online_status;
     int balance;
-    int fd; // when establish a connection
+    int fd; // when establish a connection - not used
 };
 
 class Database
