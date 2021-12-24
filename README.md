@@ -15,6 +15,7 @@
         + [Information Listing](#information-listing)
         + [P2P Transaction](#p2p-transaction)
         + [User Logout](#user-logout)
+        + [When Clients Exceed Thread Limit](#when-clients-exceed-thread-limit)
     + [Terminating Server Program](#terminating-server-program)
     + [Running Client Program](#running-client-program)
     + [Exiting Client Program](#exiting-client-program)
@@ -204,6 +205,12 @@ The server will prompt *who* logs out.
 This is not really possible since the client is well implemented. But if it does, server will handle:
 
 ![](docs/img/2021-12-20-23-32-49.png)
+
+#### When Clients Exceed Thread Limit
+
+The server will notice and soon prompt that it has now detected more clients that it can handle. The client that triggers this action will have to wait until some other online users exit the server. The client will expect to see some "waiting". 
+
+This part has been properly shown in the demo session.
 
 ### Terminating Server Program
 

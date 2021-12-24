@@ -184,6 +184,12 @@ This is not really possible since the client is well implemented. But if it does
 
 ![](docs/img/2021-12-20-23-32-49.png)
 
+#### When Clients Exceed Thread Limit
+
+The server will notice and soon prompt that it has now detected more clients that it can handle. The client that triggers this action will have to wait until some other online users exit the server. The client will expect to see some "waiting". 
+
+This part has been properly shown in the demo session.
+
 ### Terminating Server Program
 
 To terminate the server, you will have to `CTRL + C` while the server is running. Signal handling is implemented so that you can do it safely.
