@@ -85,7 +85,16 @@
         "stop_token": "cpp",
         "cinttypes": "cpp",
         "__functional_03": "cpp",
-        "filesystem": "cpp"
+        "filesystem": "cpp",
+        "fstream": "c",
+        "codecvt": "cpp",
+        "iomanip": "cpp",
+        "stack": "cpp",
+        "__tree": "cpp",
+        "map": "cpp",
+        "set": "cpp",
+        "typeindex": "cpp",
+        "future": "cpp"
     },
     "cmake.configureOnOpen": true,
     "emeraldwalk.runonsave": {
@@ -94,9 +103,22 @@
                 // run phase01 document
                 "match": "\\phase[0-9][0-9].md$",
                 "isAsync": true,
-                "cmd": "sh build.sh ${relativeFile}"
+                "cmd": "sh build.sh ${relativeFile} ${fileBasenameNoExt}"
+            },
+            {
+                // run phase01 document
+                "match": "\\phase[0-9][0-9]-\\w+.md$",
+                "isAsync": true,
+                "cmd": "sh build.sh ${relativeFile} ${fileBasenameNoExt}"
             }
         ]
-    }
-    
+    },
+    "C_Cpp.default.cppStandard": "c++17",
+    "C_Cpp.default.cStandard": "c17",
+    "C_Cpp.default.includePath": [
+        "./include"
+    ],
+    "cSpell.words": [
+        "ctpl"
+    ]
 }

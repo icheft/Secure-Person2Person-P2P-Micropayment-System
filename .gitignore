@@ -3,18 +3,31 @@ demo/*.mp4
 2021-Programming Assignment.pdf
 test/*.c
 test/*.cpp
+test/*.hpp
 test/client
 test/p2p
 test/bt
+test/*.db
+test/tmp*
+test/host*
+test/*.out
+test/*.html
+
 p2p
 bt
 mic
 client
-test/tmp*
-test/host*
+server
+server.db
 sp-ubuntu-devel-image/
 *.tar.gz
+*.zip
 docs/*-doc.pdf
+docs/*-draft.*
+archive/
+
+# docs/img/2021-12-20*
+
 
 # Created by https://www.toptal.com/developers/gitignore/api/macos,linux,c++,qt,qtcreator,vim,latex,python,c,cmake,zsh
 # Edit at https://www.toptal.com/developers/gitignore?templates=macos,linux,c++,qt,qtcreator,vim,latex,python,c,cmake,zsh
