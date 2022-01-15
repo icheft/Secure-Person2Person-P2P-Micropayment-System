@@ -69,3 +69,5 @@ pair<int, vector<string>> parse_command(string cmd);
 bool is_number(const string& s, bool double_flag = false);
 
 void process_request(int id, Connection& conn);
+
+tuple<bool, bool> check_db_status();

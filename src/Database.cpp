@@ -76,7 +76,8 @@ Database::Database(bool erase, bool reset)
     this->rc = sqlite3_exec(this->db, sql, this->callback, 0, &(this->zErrMsg));
 
     if (this->rc != SQLITE_OK) {
-        fprintf(stderr, "SQL error: %s\n", this->zErrMsg);
+        // unable to create table
+        fprintf(stderr, "SQL warning: %s\n", this->zErrMsg);
         sqlite3_free(this->zErrMsg);
     } else {
         fprintf(stdout, "Client table created successfully\n");
@@ -91,8 +92,8 @@ Database::Database(bool erase, bool reset)
 
 Database::~Database()
 {
-    sqlite3_close(this->db);
     if (this->erase) {
+        sqlite3_close(this->db);
         try {
             if (filesystem::remove(this->db_name))
                 printf("Database %s deleted successfully.\n", this->db_name.c_str());
@@ -101,6 +102,23 @@ Database::~Database()
         } catch (const filesystem::filesystem_error& err) {
             printf("Filesystem error: %s\n", err.what());
         }
+    } else {
+        // logout users
+        auto storage = this->connect();
+        auto check_user = storage.get_all<Client>(where(c(&Client::online_status) == 1));
+        for (auto user : check_user) {
+            // Client user = check_user[0];
+            // Client logout_user { username, "", -1, -1, 0 };
+            user.ip = "";
+            user.public_port = -1;
+            user.private_port = -1;
+            user.online_status = 0;
+            user.fd = -1;
+            storage.update(user);
+
+            printf("%s is forcibly logged out.\n", user.username.c_str());
+        }
+        sqlite3_close(this->db);
     }
 }
 

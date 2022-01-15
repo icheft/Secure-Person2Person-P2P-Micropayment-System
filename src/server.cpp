@@ -71,22 +71,8 @@ int main(int argc, char const* argv[])
     }
     }
 
-    bool erase = true;
-    char db_alive;
-    while (true) {
-        printf("Keep database alive after server termination? [Y/n] ");
-        do {
-            scanf("%c", &db_alive);
-        } while (db_alive == '\n');
-
-        if (db_alive == 'Y') {
-            erase = false;
-            break;
-        } else if (db_alive == 'n') {
-            erase = true;
-            break;
-        }
-    }
+    bool erase, reset;
+    tie(erase, reset) = check_db_status();
 
     ctpl::thread_pool thread_pool(LIMIT);
 
@@ -110,7 +96,7 @@ int main(int argc, char const* argv[])
     }
 
     // server database
-    db = new Database(erase, true);
+    db = new Database(erase, reset);
 
     while (true) {
         // Grab a connection from the queue
@@ -432,4 +418,41 @@ void process_request(int id, Connection& conn)
     close(connection);
     shutdown(connection, SHUT_RDWR);
     return;
+}
+
+tuple<bool, bool> check_db_status()
+{
+    bool erase = true;
+    char db_alive;
+    while (true) {
+        printf("Keep database alive after server termination? [Y/n] ");
+        do {
+            scanf("%c", &db_alive);
+        } while (db_alive == '\n');
+
+        if (db_alive == 'Y' || db_alive == 'y') {
+            erase = false;
+            break;
+        } else if (db_alive == 'n' || db_alive == 'N') {
+            erase = true;
+            break;
+        }
+    }
+    bool reset = true;
+    char db_reset;
+    while (true) {
+        printf("Reset database during initialization? [Y/n] ");
+        do {
+            scanf("%c", &db_reset);
+        } while (db_reset == '\n');
+
+        if (db_reset == 'Y' || db_reset == 'y') {
+            reset = true;
+            break;
+        } else if (db_reset == 'n' || db_reset == 'N') {
+            reset = false;
+            break;
+        }
+    }
+    return make_tuple(erase, reset);
 }
