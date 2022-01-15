@@ -10,6 +10,7 @@ string public_key = "public_key";
 vector<pair<string, int*>> client_fds;
 int current_user = 0;
 int tmp_current_user = 0;
+SSL_CTX* ctx;
 
 int main(int argc, char const* argv[])
 {
@@ -70,6 +71,23 @@ int main(int argc, char const* argv[])
     }
     }
 
+    bool erase = true;
+    char db_alive;
+    while (true) {
+        printf("Keep database alive after server termination? [Y/n] ");
+        do {
+            scanf("%c", &db_alive);
+        } while (db_alive == '\n');
+
+        if (db_alive == 'Y') {
+            erase = false;
+            break;
+        } else if (db_alive == 'n') {
+            erase = true;
+            break;
+        }
+    }
+
     ctpl::thread_pool thread_pool(LIMIT);
 
     printf("Server listening on port %d\n", server_port);
@@ -92,7 +110,7 @@ int main(int argc, char const* argv[])
     }
 
     // server database
-    db = new Database(true, true);
+    db = new Database(erase, true);
 
     while (true) {
         // Grab a connection from the queue
@@ -106,13 +124,6 @@ int main(int argc, char const* argv[])
 
             // TODO: there should be a wait list
             // TODO: maybe create another table called wait
-            // struct sockaddr_in addr;
-            // socklen_t addr_size = sizeof(struct sockaddr_in);
-            // int res = getpeername(connection, (struct sockaddr*)&addr, &addr_size);
-            // char* clientip = new char[20];
-            // int clientport;
-            // strcpy(clientip, inet_ntoa(addr.sin_addr));
-            // clientport = ntohs(addr.sin_port);
         }
         if (connection < 0) {
             perror("Failed to grab connection");
@@ -369,14 +380,21 @@ void process_request(int id, Connection& conn)
 
             // to the sender
             auto sender = db->user_info(processed_cmd[0]);
-            int* sender_fd;
+            auto receiver = db->user_info(processed_cmd[2]);
+            int* sender_fd = nullptr;
+            int* receiver_fd = nullptr;
             for (int i = 0; i < client_fds.size(); i++) {
                 if (client_fds[i].first == sender.username) {
-                    // NOTE: have to use global file descriptor to get the job done
                     sender_fd = client_fds[i].second;
-                    break;
                 }
+                if (client_fds[i].first == receiver.username) {
+                    receiver_fd = client_fds[i].second;
+                }
+                if (sender_fd != nullptr && receiver_fd != nullptr)
+                    break;
             }
+
+            send(*receiver_fd, response.c_str(), response.size(), 0);
             send(*sender_fd, response.c_str(), response.size(), 0);
             break;
         }

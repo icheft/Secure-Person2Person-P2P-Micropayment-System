@@ -23,6 +23,9 @@
 #include <iostream>
 #include <netdb.h>
 #include <netinet/in.h>
+#include <openssl/crypto.h>
+#include <openssl/err.h>
+#include <openssl/ssl.h>
 #include <pthread.h>
 #include <signal.h> // sigaction
 #include <stdbool.h>

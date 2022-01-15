@@ -1,3 +1,4 @@
+# for docs
 IN_DIR="docs/"
 OUT_DIR="docs/"
 DOC_PREFIX="phase02"
