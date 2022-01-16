@@ -9,6 +9,7 @@ bool termination_flag = false; // be careful of what you wish for
 const int connection_limit = 10;
 string public_key = "public_key";
 vector<pair<string, int*>> client_fds;
+vector<pair<string, SSL*>> client_SSLs;
 int current_user = 0;
 int tmp_current_user = 0;
 SSL_CTX* ctx;
@@ -191,6 +192,10 @@ void sigint_handler(sig_atomic_t s)
     close(socket_fd);
     shutdown(socket_fd, SHUT_RDWR);
     SSL_CTX_free(ctx);
+    for (auto ssl : client_SSLs) {
+        SSL_shutdown(ssl.second);
+        SSL_free(ssl.second);
+    }
     for (auto& fd : client_fds) {
         close(*fd.second);
         shutdown(*fd.second, SHUT_RDWR);
@@ -254,14 +259,14 @@ pair<int, vector<string>> parse_command(string cmd)
         cmd_type = LOGIN;
     } else if (args[0] == "TRANSACTION") {
         cmd_type = TRANSACTION;
-        string param;
-        size_t pos;
-        if ((pos = cmd.find_first_of("#")) == string::npos)
-            pos = cmd.find_first_of("\r\n");
-        param = cmd.substr(0, pos);
-        args.clear();
-        args.push_back("TRANSACTION");
-        args.push_back(cmd.substr(pos + 1));
+        // string param;
+        // size_t pos;
+        // if ((pos = cmd.find_first_of("#")) == string::npos)
+        //     pos = cmd.find_first_of("\r\n");
+        // param = cmd.substr(0, pos);
+        // args.clear();
+        // args.push_back("TRANSACTION");
+        // args.push_back(cmd.substr(pos + 1));
     } else if (args.size() == 3 && is_number(args[1], true)) {
         // plaintext
         cmd_type = TRANSACTION;
@@ -324,6 +329,7 @@ void process_request(int id, Connection& conn)
             for (int i = 0; i < client_fds.size(); i++) {
                 if (client_fds[i].first == username) {
                     client_fds.erase(client_fds.begin() + i);
+                    client_SSLs.erase(client_SSLs.begin() + i);
                     break;
                 }
             }
@@ -372,6 +378,7 @@ void process_request(int id, Connection& conn)
             } else if (status == LOGIN_SUCCESS) {
                 username = processed_cmd[0];
                 client_fds.push_back(make_pair(username, &connection));
+                client_SSLs.push_back(make_pair(username, ssl));
                 auto user = db->user_info(username);
                 response = to_string(user.balance) + "\n";
                 response += public_key + "\n";
@@ -400,34 +407,25 @@ void process_request(int id, Connection& conn)
         }
         case TRANSACTION: {
             // TODO: transfer 前會先 check transaction command
+            // TODO: two-stage implementation
             // FIXME: fail to decrypt
             // raw processed_cmd[1]
             printf("transaction\n");
+            char buffer[MAX_LENGTH];
+            // int tmp_byte_read = recv(connection, buffer, sizeof(buffer), 0); // RECV_SIGNAL
+            int tmp_byte_read = SSL_read(ssl, buffer, sizeof(buffer));
             // int len = RSA_size(rsa_key);
 
-            char raw_from_cipher[MAX_LENGTH];
-            // char* raw_from_cipher = new char[len + 1];
-            memset(raw_from_cipher, 0, MAX_LENGTH);
+            char* plaintext = new char[RSA_size(rsa_key) + 1];
 
-            int i = 0;
-            for (auto cmd : processed_cmd) {
-                if (i++ == 0) continue;
-                strcat(raw_from_cipher, cmd.c_str());
-            }
+            printf("buffer#%s\n", buffer);
 
-            // ShowCerts(ssl);
+            int decrypt_err = RSA_public_decrypt(256, (unsigned char*)buffer, (unsigned char*)plaintext, rsa_key, RSA_PKCS1_PADDING);
 
-            char* plaintext = new char[MAX_LENGTH];
-            memset(plaintext, 0, MAX_LENGTH + 1);
-            // RSA_public_decrypt(len, (unsigned char*)buffer, (unsigned char*)plaintext, rsa_key, RSA_PKCS1_PADDING);
-            int decrypt_err = RSA_public_decrypt(256, (unsigned char*)raw_from_cipher, (unsigned char*)plaintext, rsa_key, RSA_PKCS1_PADDING);
-            printf("raw_from_cipher: [%s]\n", raw_from_cipher);
-            // printf("len: %d\n", strlen(raw_from_cipher) + 1);
-            // int decrypt_err = RSA_public_decrypt(len, (unsigned char*)raw_from_cipher, (unsigned char*)plaintext, rsa_key, RSA_PKCS1_PADDING);
             if (decrypt_err == -1) {
-                // fail
                 printf("decrypt error\n");
-                exit(1);
+                // exit(1);
+                continue;
             }
 
             string tmp_raw(plaintext);
@@ -450,12 +448,16 @@ void process_request(int id, Connection& conn)
             auto receiver = db->user_info(processed_cmd[2]);
             int* sender_fd = nullptr;
             int* receiver_fd = nullptr;
+            SSL* sender_SSL;
+            SSL* receiver_SSL;
             for (int i = 0; i < client_fds.size(); i++) {
                 if (client_fds[i].first == sender.username) {
                     sender_fd = client_fds[i].second;
+                    sender_SSL = client_SSLs[i].second;
                 }
                 if (client_fds[i].first == receiver.username) {
                     receiver_fd = client_fds[i].second;
+                    receiver_SSL = client_SSLs[i].second;
                 }
                 if (sender_fd != nullptr && receiver_fd != nullptr)
                     break;
@@ -463,21 +465,7 @@ void process_request(int id, Connection& conn)
 
             // verify sender and receiver
             // if ok then send OK to receiver
-            // send(*receiver_fd, response.c_str(), response.size(), 0);
-            SSL_CTX* tmp_ctx;
-            SSL* tmp_ssl;
-            string key_path = "certs/server.key";
-            string crt_path = "certs/server.crt";
-            tmp_ctx = SSL_CTX_new(SSLv23_method());
-
-            LoadCertificates(tmp_ctx, crt_path.data(), key_path.data());
-
-            SSL_CTX_load_verify_locations(tmp_ctx, "certs/CA.pem", NULL);
-            SSL_CTX_set_verify(tmp_ctx, SSL_VERIFY_PEER, NULL);
-
-            tmp_ssl = SSL_new(tmp_ctx);
-            SSL_set_fd(tmp_ssl, *sender_fd);
-            SSL_connect(tmp_ssl);
+            // SSL_connect(c_ssl);
 
             FILE* fp = fopen("certs/server.key", "r");
             RSA* p_key = PEM_read_RSAPrivateKey(fp, NULL, NULL, NULL);
@@ -489,9 +477,9 @@ void process_request(int id, Connection& conn)
             int r = RSA_private_encrypt(response.size(), (const unsigned char*)response.c_str(), (unsigned char*)ciphertext, p_key, RSA_PKCS1_PADDING);
 
             printf("cipher: %s\n", ciphertext);
-            // SSL_write(tmp_ssl, ciphertext, RSA_size(p_key));
+            SSL_write(sender_SSL, ciphertext, RSA_size(p_key));
             // FIXME: send nothing to client
-            SSL_write(tmp_ssl, response.c_str(), response.size());
+            // SSL_write(tmp_ssl, ciphertext, r);
             // send(*sender_fd, response.c_str(), response.size(), 0);
             break;
         }
@@ -504,6 +492,7 @@ void process_request(int id, Connection& conn)
             for (int i = 0; i < client_fds.size(); i++) {
                 if (client_fds[i].first == username) {
                     client_fds.erase(client_fds.begin() + i);
+                    client_SSLs.erase(client_SSLs.begin() + i);
                     break;
                 }
             }

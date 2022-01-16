@@ -8,7 +8,7 @@
 
 ### Progress
 
-
++ [ ] Two-stage transaction 
 
 ### Add Certificates
 

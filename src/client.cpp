@@ -360,27 +360,31 @@ char* p2p_transaction(int socket_fd)
     SSL_write(tmp_ssl, ciphertext, len);
 
     char tmp_msg_from_peer[MAX_LENGTH] = { 0 };
-    SSL_shutdown(tmp_ssl);
-    close(peer_sock);
-    SSL_free(tmp_ssl);
     // SSL_CTX_free(tmp_ctx);
     // bytes_read += recv(server_fd, rcv_msg, MAX_LENGTH, 0);
-    // X509* s_crt = SSL_get_peer_certificate(ssl);
-    // EVP_PKEY* s_p_key = X509_get_pubkey(s_crt);
-    // RSA* s_rsa_key = EVP_PKEY_get1_RSA(s_p_key);
+    // printf("rcv_msg from server: %s\n", rcv_msg);
+    // memset(buffer, 0, MAX_LENGTH);
+    X509* s_crt = SSL_get_peer_certificate(ssl);
+    EVP_PKEY* s_p_key = X509_get_pubkey(s_crt);
+    RSA* s_rsa_key = EVP_PKEY_get1_RSA(s_p_key);
 
+    // // FIXME: cannot read server's message
+
+    bytes_read += SSL_read(ssl, buffer, 256);
     memset(rcv_msg, 0, MAX_LENGTH);
-    // FIXME: cannot read server's message
-    bytes_read += SSL_read(ssl, rcv_msg, MAX_LENGTH);
+    memcpy(rcv_msg, buffer, 256);
 
-    printf(">>> %s\n", rcv_msg);
+    printf(">>> %s\n", buffer);
 
-    // char* plaintext = new char[MAX_LENGTH];
-    // memset(plaintext, 0, MAX_LENGTH);
-    // RSA_public_decrypt(RSA_size(s_rsa_key), (unsigned char*)rcv_msg, (unsigned char*)plaintext, s_rsa_key, RSA_PKCS1_PADDING);
+    char* plaintext = new char[MAX_LENGTH];
+    memset(plaintext, 0, MAX_LENGTH);
+    RSA_public_decrypt(RSA_size(s_rsa_key), (unsigned char*)rcv_msg, (unsigned char*)plaintext, s_rsa_key, RSA_PKCS1_PADDING);
 
-    // memset(rcv_msg, 0, MAX_LENGTH);
-    // strcpy(rcv_msg, plaintext);
+    // // memset(rcv_msg, 0, MAX_LENGTH);
+    // // strcpy(rcv_msg, plaintext);
+    SSL_shutdown(tmp_ssl);
+    SSL_free(tmp_ssl);
+    close(peer_sock);
 
     return rcv_msg; // transfer OK
 }
@@ -510,57 +514,59 @@ int receiving(int socket_fd)
                     int encrypted_length = RSA_private_encrypt((strlen(plaintext) + 1) * sizeof(char), (const unsigned char*)plaintext, (unsigned char*)ciphertext, pp_key, RSA_PKCS1_PADDING);
 
                     // string server_msg = "TRANSACTION#" + string(ciphertext);
-                    printf("Length: %d\n", encrypted_length);
-                    // printf(">> p2p_msg: %s\n", server_msg.c_str());
-                    printf(">> TRANSACTION#%s\n", ciphertext);
-                    // SSL_write(tmp_ssl, ciphertext, len);
-                    // end here
-                    printf(">>>>>\n");
-                    printf("%s\n", ciphertext);
-                    printf("%d\n", strlen(ciphertext) + 1);
-                    // string server_msg = "TRANSACTION#" + string(ciphertext);
-                    char server_prefix[] = "TRANSACTION#";
-                    char* server_msg = new char[strlen(server_prefix) + 1 + encrypted_length];
-                    memcpy(server_msg, server_prefix, strlen(server_prefix) + 1);
-                    memcpy(server_msg + strlen(server_prefix), ciphertext, strlen(server_prefix) + 1 + encrypted_length);
+                    // printf("Length: %d\n", encrypted_length);
+                    // // printf(">> p2p_msg: %s\n", server_msg.c_str());
+                    // printf(">> TRANSACTION#%s\n", ciphertext);
+                    // // SSL_write(tmp_ssl, ciphertext, len);
+                    // // end here
+                    // printf(">>>>>\n");
+                    // printf("%s\n", ciphertext);
+                    // printf("%d\n", strlen(ciphertext) + 1);
+                    // // string server_msg = "TRANSACTION#" + string(ciphertext);
+                    char server_prefix[] = "TRANSACTION";
+                    // char* server_msg = new char[strlen(server_prefix) + 1 + encrypted_length];
+                    // memcpy(server_msg, server_prefix, strlen(server_prefix) + 1);
+                    // memcpy(server_msg + strlen(server_prefix), ciphertext, strlen(server_prefix) + 1 + encrypted_length);
                     // sprintf(server_msg, "TRANSACTION#%s", ciphertext);
 
-                    printf("msg to server: %s\n", server_msg);
+                    // printf("msg to server: %s\n", server_msg);
                     // FIXME: fail send encrypt message to server
 
                     // TODO: 自己 decrypt 看看
-                    string cmd(server_msg);
-                    string param;
-                    size_t pos;
-                    if ((pos = cmd.find_first_of("#")) == string::npos)
-                        pos = cmd.find_first_of("\r\n");
-                    param = cmd.substr(0, pos);
+                    // string cmd(server_msg);
+                    // string param;
+                    // size_t pos;
+                    // if ((pos = cmd.find_first_of("#")) == string::npos)
+                    //     pos = cmd.find_first_of("\r\n");
+                    // param = cmd.substr(0, pos);
 
-                    cmd = cmd.substr(pos + 1);
+                    // cmd = cmd.substr(pos + 1);
 
-                    // char encrypted[MAX_LENGTH] = {};
-                    char* encrypted = new char[pp_len + 1];
-                    memset(encrypted, 0, pp_len + 1);
+                    // // char encrypted[MAX_LENGTH] = {};
+                    // char* encrypted = new char[pp_len + 1];
+                    // memset(encrypted, 0, pp_len + 1);
 
-                    memcpy(encrypted, ciphertext, pp_len);
+                    // memcpy(encrypted, ciphertext, pp_len);
 
-                    if (strcmp(encrypted, ciphertext) == 0) {
-                        printf("same stuff\n");
-                    }
+                    // if (strcmp(encrypted, ciphertext) == 0) {
+                    //     printf("same stuff\n");
+                    // }
 
-                    unsigned char decrypted[MAX_LENGTH] = {};
+                    // unsigned char decrypted[MAX_LENGTH] = {};
 
-                    decrypt_err = RSA_public_decrypt(256, (unsigned char*)encrypted, decrypted, rsa_key, RSA_PKCS1_PADDING);
+                    // decrypt_err = RSA_public_decrypt(256, (unsigned char*)encrypted, decrypted, rsa_key, RSA_PKCS1_PADDING);
 
-                    if (decrypt_err == FAIL) {
-                        printf("decrypt error\n");
-                        exit(1);
-                    }
-                    printf("Self-Decrypted: %s\n", decrypted);
+                    // if (decrypt_err == FAIL) {
+                    //     printf("decrypt error\n");
+                    //     exit(1);
+                    // }
+                    // printf("Self-Decrypted: %s\n", decrypted);
 
                     // send to server
 
-                    SSL_write(ssl, server_msg, sizeof(server_msg) + 1);
+                    SSL_write(ssl, server_prefix, sizeof(server_prefix) + 1);
+
+                    SSL_write(ssl, ciphertext, 256);
 
                     // receiving reponse from server
                     // if ok, then show transfer info
