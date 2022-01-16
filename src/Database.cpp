@@ -47,6 +47,7 @@ auto Database::connect()
             make_column("private_port", &Client::private_port),
             make_column("online_status", &Client::online_status),
             make_column("balance", &Client::balance)));
+    // make_column("rsa_key", &Client::rsa_key)
 }
 
 Database::Database(bool erase, bool reset)
@@ -155,6 +156,7 @@ int Database::user_login(string username, string ip, int public_port, int privat
             user.private_port = private_port;
             user.online_status = 1;
             user.fd = fd;
+            // user.rsa_key = rsa_key;
             // Client login_user { username, ip, public_port, private_port, 1 };
             storage.update(user);
             printf("Updated!\n");
@@ -197,6 +199,9 @@ int Database::user_transaction(string snd, string rcv, double pay)
     if (sender_result.size() == 1 && receiver_result.size() == 1) {
         auto sender = sender_result[0];
         auto receiver = receiver_result[0];
+
+        // RSA* snd_key = sender.rsa_key; // will not be used here
+        // RSA* rcv_key = receiver.rsa_key; // receiver key is enough for this task
 
         if (sender.balance - pay < 0) {
             return TRANSFER_SENDER_BANKRUPT;

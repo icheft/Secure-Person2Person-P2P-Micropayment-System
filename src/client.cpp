@@ -1,13 +1,15 @@
 #include "client.hpp"
+#include "util.hpp"
 
 using namespace std;
 
 #define CMD_LENGTH 20
 #define FAIL -1
-#define MAX_LENGTH 1024
+#define MAX_LENGTH 2048
+#define CRLF "\r\n"
 
 // global variables
-const char DEFAULT_IP_ADDRESS[20] = "10.211.55.4"; // Parallels "10.211.55.4"
+const char DEFAULT_IP_ADDRESS[20] = "127.0.0.1"; // Parallels "10.211.55.4"
 const int DEFAULT_PORT = 8888; // 8888
 int SERVER_PORT;
 char SERVER_IP_ADDRESS[20];
@@ -22,6 +24,9 @@ string server_public_key;
 bool client_server_open = false; // login = true
 int cserver_fd; // client server
 
+SSL_CTX* ctx;
+SSL* ssl;
+
 // exceptions
 class not_found_error : public exception
 {
@@ -30,6 +35,14 @@ class not_found_error : public exception
         return "User not found.";
     }
 } not_found;
+
+class self_trans_error : public exception
+{
+    virtual const char* what() const throw()
+    {
+        return "Cannot transfer to youself.";
+    }
+} self_trans;
 
 int main(int argc, char const* argv[])
 {
@@ -67,6 +80,17 @@ int main(int argc, char const* argv[])
     // session time
     time_t begin = time(NULL);
 
+    string key_path = "certs/client.key";
+    string crt_path = "certs/client.crt";
+    ctx = SSL_CTX_new(SSLv23_method());
+    LoadCertificates(ctx, crt_path.data(), key_path.data());
+
+    if (!SSL_CTX_load_verify_locations(ctx, "certs/CA.pem", NULL)) {
+        cout << "failed to load certificates\n";
+        return -1;
+    }
+    SSL_CTX_set_verify(ctx, SSL_VERIFY_PEER, NULL);
+
     // declaration for server socket
     struct sockaddr_in address;
     int k = 0;
@@ -91,6 +115,12 @@ int main(int argc, char const* argv[])
         perror("Connection error");
         exit(EXIT_FAILURE);
     }
+
+    ssl = SSL_new(ctx);
+    SSL_set_fd(ssl, server_fd);
+    SSL_connect(ssl);
+
+    ShowCerts(ssl);
 
     // print the server socket addr and port
     get_info(&address);
@@ -200,6 +230,8 @@ int main(int argc, char const* argv[])
                 strcpy(rcv_msg, p2p_transaction(server_fd));
             } catch (exception& e) {
                 // user not found --> will print out the message in p2p
+                // or self transaction
+                cout << e.what() << endl;
                 break;
             }
             printf("\n%s\n", rcv_msg);
@@ -245,6 +277,11 @@ char* p2p_transaction(int socket_fd)
     scanf("%d", &amount);
     getchar();
 
+    if (strcmp(sender, receiver) == 0) {
+        // cout << self_trans.what() << endl;
+        throw self_trans; // throw back to main
+    }
+
     char* transact_msg = new char[MAX_LENGTH];
     strcat(transact_msg, sender);
     strcat(transact_msg, "#");
@@ -264,6 +301,16 @@ char* p2p_transaction(int socket_fd)
         printf("\n Socket creation error \n");
     }
 
+    SSL_CTX* tmp_ctx;
+    SSL* tmp_ssl;
+    string key_path = "certs/client.key";
+    string crt_path = "certs/client.crt";
+    tmp_ctx = SSL_CTX_new(SSLv23_method());
+
+    LoadCertificates(tmp_ctx, crt_path.data(), key_path.data());
+    SSL_CTX_load_verify_locations(tmp_ctx, "certs/CA.pem", NULL);
+    SSL_CTX_set_verify(tmp_ctx, SSL_VERIFY_PEER, NULL);
+
     int host_port;
     string host_ip;
     try {
@@ -272,8 +319,8 @@ char* p2p_transaction(int socket_fd)
         host_port = stoi(peer_info[2]);
         host_ip = peer_info[1];
     } catch (exception& e) {
-        cout << e.what() << '\n';
-        throw not_found; // throw again to main
+        // cout << e.what() << '\n';
+        throw not_found; // display at main
     }
 
     bzero(&peer_serv_addr, sizeof(peer_serv_addr));
@@ -285,13 +332,55 @@ char* p2p_transaction(int socket_fd)
     if (err == FAIL) {
         printf("\nConnection Failed \n");
     }
+
+    tmp_ssl = SSL_new(tmp_ctx);
+    SSL_set_fd(tmp_ssl, peer_sock);
+    SSL_connect(tmp_ssl);
+
     char buffer[MAX_LENGTH] = { 0 };
     strcpy(buffer, transact_msg);
     // sending
-    bytes_written += send(peer_sock, buffer, sizeof(buffer), 0);
+
+    FILE* fp = fopen("certs/client.key", "r");
+    RSA* p_key = PEM_read_RSAPrivateKey(fp, NULL, NULL, NULL);
+    fclose(fp);
+
+    int len = RSA_size(p_key);
+    // printf("len: %d\n", len);
+    // printf("buffer text: %s\n", buffer);
+    char* ciphertext = new char[len + 1];
+    memset(ciphertext, 0, len + 1);
+    RSA_private_encrypt((strlen(buffer) + 1) * sizeof(char), (const unsigned char*)buffer, (unsigned char*)ciphertext, p_key, RSA_PKCS1_PADDING);
+
+    // bytes_written += send(peer_sock, buffer, sizeof(buffer), 0);
+    // string server_msg = "TRANSACTION#" + string(ciphertext);
+
+    // printf(">> p2p_msg: %s\n", server_msg.c_str());
+    printf(">> ciphertext: %s\n", ciphertext);
+    SSL_write(tmp_ssl, ciphertext, len);
+
     char tmp_msg_from_peer[MAX_LENGTH] = { 0 };
+    SSL_shutdown(tmp_ssl);
     close(peer_sock);
-    bytes_read += recv(server_fd, rcv_msg, MAX_LENGTH, 0);
+    SSL_free(tmp_ssl);
+    // SSL_CTX_free(tmp_ctx);
+    // bytes_read += recv(server_fd, rcv_msg, MAX_LENGTH, 0);
+    // X509* s_crt = SSL_get_peer_certificate(ssl);
+    // EVP_PKEY* s_p_key = X509_get_pubkey(s_crt);
+    // RSA* s_rsa_key = EVP_PKEY_get1_RSA(s_p_key);
+
+    memset(rcv_msg, 0, MAX_LENGTH);
+    // FIXME: cannot read server's message
+    bytes_read += SSL_read(ssl, rcv_msg, MAX_LENGTH);
+
+    printf(">>> %s\n", rcv_msg);
+
+    // char* plaintext = new char[MAX_LENGTH];
+    // memset(plaintext, 0, MAX_LENGTH);
+    // RSA_public_decrypt(RSA_size(s_rsa_key), (unsigned char*)rcv_msg, (unsigned char*)plaintext, s_rsa_key, RSA_PKCS1_PADDING);
+
+    // memset(rcv_msg, 0, MAX_LENGTH);
+    // strcpy(rcv_msg, plaintext);
 
     return rcv_msg; // transfer OK
 }
@@ -328,7 +417,7 @@ void* receive_thread(void* socket_fd)
 int receiving(int socket_fd)
 {
     struct sockaddr_in address;
-    char buffer[2000] = { 0 };
+    char buffer[MAX_LENGTH] = { 0 };
     int addrlen = sizeof(address);
     fd_set current_sockets, ready_sockets;
 
@@ -359,12 +448,129 @@ int receiving(int socket_fd)
                     }
                     FD_SET(client_socket, &current_sockets);
                 } else {
-                    // receiving
-                    int tmp_byte_read = recv(i, buffer, sizeof(buffer), 0);
-                    vector<string> transfer_info = split(buffer, "#");
-                    send(server_fd, buffer, tmp_byte_read, 0);
+                    // receiving from peer
+                    SSL_CTX* tmp_ctx = SSL_CTX_new(SSLv23_method());
+                    SSL* tmp_ssl;
+                    string key_path = "certs/client.key";
+                    string crt_path = "certs/client.crt";
+                    string CA_path = "certs/CA.pem";
+
+                    LoadCertificates(tmp_ctx, crt_path.data(), key_path.data());
+
+                    if (!SSL_CTX_load_verify_locations(tmp_ctx, CA_path.data(), NULL)) {
+                        cout << "failed to load client certificate.\n";
+                        exit(1);
+                    }
+                    SSL_CTX_set_verify(tmp_ctx, SSL_VERIFY_PEER, NULL);
+
+                    tmp_ssl = SSL_new(tmp_ctx);
+                    SSL_set_fd(tmp_ssl, i);
+                    SSL_accept(tmp_ssl);
+
+                    X509* crt = SSL_get_peer_certificate(tmp_ssl);
+                    EVP_PKEY* p_key = X509_get_pubkey(crt);
+                    RSA* rsa_key = EVP_PKEY_get1_RSA(p_key);
+                    int len = RSA_size(rsa_key);
+
+                    // int tmp_byte_read = recv(i, buffer, sizeof(buffer), 0);
+                    int tmp_byte_read = SSL_read(tmp_ssl, buffer, sizeof(buffer));
+                    // recv done
+
+                    printf(">>> receiving from peer; len: %d\n", len);
                     bytes_read += tmp_byte_read;
+
+                    char* plaintext = new char[len + 1];
+
+                    printf("buffer#%s\n", buffer);
+
+                    int decrypt_err = RSA_public_decrypt(len, (unsigned char*)buffer, (unsigned char*)plaintext, rsa_key, RSA_PKCS1_PADDING);
+
+                    if (decrypt_err == FAIL) {
+                        printf("decrypt error\n");
+                        exit(1);
+                    }
+                    string tmp_buffer(plaintext);
+                    vector<string> transfer_info = split(tmp_buffer, "#");
+                    // plain text done
+
+                    printf("\n>>>\n"); // now
+                    printf("\n>>> %s sent you a message\n", transfer_info[0].c_str());
+
+                    // start encryption for server
+                    FILE* fp = fopen("certs/client.key", "r");
+                    RSA* pp_key = PEM_read_RSAPrivateKey(fp, NULL, NULL, NULL);
+                    fclose(fp);
+
+                    int pp_len = RSA_size(pp_key);
+                    // printf("len: %d\n", len);
+                    // printf("buffer text: %s\n", buffer);
+                    // char* ciphertext = new char[pp_len + 1];
+                    char* ciphertext = new char[pp_len + 1];
+                    memset(ciphertext, 0, pp_len + 1);
+                    int encrypted_length = RSA_private_encrypt((strlen(plaintext) + 1) * sizeof(char), (const unsigned char*)plaintext, (unsigned char*)ciphertext, pp_key, RSA_PKCS1_PADDING);
+
+                    // string server_msg = "TRANSACTION#" + string(ciphertext);
+                    printf("Length: %d\n", encrypted_length);
+                    // printf(">> p2p_msg: %s\n", server_msg.c_str());
+                    printf(">> TRANSACTION#%s\n", ciphertext);
+                    // SSL_write(tmp_ssl, ciphertext, len);
+                    // end here
+                    printf(">>>>>\n");
+                    printf("%s\n", ciphertext);
+                    printf("%d\n", strlen(ciphertext) + 1);
+                    // string server_msg = "TRANSACTION#" + string(ciphertext);
+                    char server_prefix[] = "TRANSACTION#";
+                    char* server_msg = new char[strlen(server_prefix) + 1 + encrypted_length];
+                    memcpy(server_msg, server_prefix, strlen(server_prefix) + 1);
+                    memcpy(server_msg + strlen(server_prefix), ciphertext, strlen(server_prefix) + 1 + encrypted_length);
+                    // sprintf(server_msg, "TRANSACTION#%s", ciphertext);
+
+                    printf("msg to server: %s\n", server_msg);
+                    // FIXME: fail send encrypt message to server
+
+                    // TODO: 自己 decrypt 看看
+                    string cmd(server_msg);
+                    string param;
+                    size_t pos;
+                    if ((pos = cmd.find_first_of("#")) == string::npos)
+                        pos = cmd.find_first_of("\r\n");
+                    param = cmd.substr(0, pos);
+
+                    cmd = cmd.substr(pos + 1);
+
+                    // char encrypted[MAX_LENGTH] = {};
+                    char* encrypted = new char[pp_len + 1];
+                    memset(encrypted, 0, pp_len + 1);
+
+                    memcpy(encrypted, ciphertext, pp_len);
+
+                    if (strcmp(encrypted, ciphertext) == 0) {
+                        printf("same stuff\n");
+                    }
+
+                    unsigned char decrypted[MAX_LENGTH] = {};
+
+                    decrypt_err = RSA_public_decrypt(256, (unsigned char*)encrypted, decrypted, rsa_key, RSA_PKCS1_PADDING);
+
+                    if (decrypt_err == FAIL) {
+                        printf("decrypt error\n");
+                        exit(1);
+                    }
+                    printf("Self-Decrypted: %s\n", decrypted);
+
+                    // send to server
+
+                    SSL_write(ssl, server_msg, sizeof(server_msg) + 1);
+
+                    // receiving reponse from server
+                    // if ok, then show transfer info
+                    // tmp_byte_read = recv(server_fd, buffer, sizeof(buffer), 0);
+                    bytes_read += tmp_byte_read;
+                    // compare buffer, if buffer == "transfer OK" then list transfer info
+                    // if (strcmp(buffer, "transfer OK\n") == 0) {
                     printf("\n[Notification] %s just sent you $%s!\n", transfer_info[0].c_str(), transfer_info[1].c_str());
+                    // }
+                    SSL_free(tmp_ssl);
                     FD_CLR(i, &current_sockets);
                 }
             }
@@ -426,10 +632,14 @@ char* register_user(int socket_fd)
     if (!client_server_open) {
         strcpy(name, tmp_name);
     }
-    int snd_byte = send(socket_fd, snd_msg, sizeof(snd_msg) + 1, 0);
+    // int snd_byte = send(socket_fd, snd_msg, sizeof(snd_msg) + 1, 0);
+    // printf("sending msg: %s\n", snd_msg);
+    int snd_byte = SSL_write(ssl, snd_msg, sizeof(snd_msg) + 1);
+    printf("sent msg: %s\n", snd_msg);
     bytes_written += snd_byte;
 
-    int rcv_byte = recv(socket_fd, rcv_msg, MAX_LENGTH, 0);
+    // int rcv_byte = recv(socket_fd, rcv_msg, MAX_LENGTH, 0);
+    int rcv_byte = SSL_read(ssl, rcv_msg, MAX_LENGTH);
     bytes_read += rcv_byte;
 
     return rcv_msg;
@@ -522,10 +732,14 @@ char* login_server(int socket_fd, int* login_port)
 
     strcat(snd_msg, to_string(*login_port).c_str());
     // send message to server
-    int snd_byte = send(socket_fd, snd_msg, sizeof(snd_msg) + 1, 0);
-    bytes_written += snd_byte;
+    // int snd_byte = send(socket_fd, snd_msg, sizeof(snd_msg) + 1, 0);
+    // bytes_written += snd_byte;
 
-    int rcv_byte = recv(socket_fd, rcv_msg, MAX_LENGTH, 0);
+    // int rcv_byte = recv(socket_fd, rcv_msg, MAX_LENGTH, 0);
+
+    int snd_byte = SSL_write(ssl, snd_msg, sizeof(snd_msg) + 1);
+    bytes_written += snd_byte;
+    int rcv_byte = SSL_read(ssl, rcv_msg, MAX_LENGTH);
     bytes_read += rcv_byte;
     return rcv_msg;
 }
@@ -534,10 +748,14 @@ char* request_list(int socket_fd)
 {
     const char* snd_msg = "List";
     char* rcv_msg = new char[MAX_LENGTH];
-    int snd_byte = send(socket_fd, snd_msg, sizeof(snd_msg) + 1, 0);
-    bytes_written += snd_byte;
+    // int snd_byte = send(socket_fd, snd_msg, sizeof(snd_msg) + 1, 0);
+    // bytes_written += snd_byte;
 
-    int rcv_byte = recv(socket_fd, rcv_msg, MAX_LENGTH, 0);
+    // int rcv_byte = recv(socket_fd, rcv_msg, MAX_LENGTH, 0);
+
+    int snd_byte = SSL_write(ssl, snd_msg, sizeof(snd_msg) + 1);
+    bytes_written += snd_byte;
+    int rcv_byte = SSL_read(ssl, rcv_msg, MAX_LENGTH);
     bytes_read += rcv_byte;
     // parse_info
     // FIXME: way to identify error --> be aware when self-implemtating the server
@@ -556,10 +774,16 @@ char* exit_server(int socket_fd)
         printf("See you next time!\n");
     const char* exit_msg = "Exit";
     char* rcv_msg = new char[MAX_LENGTH];
-    send(socket_fd, exit_msg, sizeof(exit_msg) + 1, 0);
-    recv(socket_fd, rcv_msg, MAX_LENGTH, 0);
+    // send(socket_fd, exit_msg, sizeof(exit_msg) + 1, 0);
+    // const char* req = cmd.c_str();
+    SSL_write(ssl, exit_msg, sizeof(exit_msg) + 1);
+    SSL_read(ssl, rcv_msg, MAX_LENGTH);
+
+    // recv(socket_fd, rcv_msg, MAX_LENGTH, 0);
     // close(socket_fd);
-    close(socket_fd);
+    // close(socket_fd);
+    SSL_free(ssl);
+    SSL_CTX_free(ctx);
     // // cout << rcv_msg << endl;
     // if (string(rcv_msg) == "Bye") {
     // } else {

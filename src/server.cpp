@@ -1,5 +1,6 @@
 #include "server.hpp"
-
+#include "util.hpp"
+#define MAX_LENGTH 2048
 // global variables for signal handler
 Database* db;
 int socket_fd;
@@ -76,6 +77,22 @@ int main(int argc, char const* argv[])
 
     ctpl::thread_pool thread_pool(LIMIT);
 
+    // openssl
+    string key_path = "certs/server.key";
+    string crt_path = "certs/server.crt";
+
+    ctx = SSL_CTX_new(SSLv23_method());
+
+    // load certificate
+    LoadCertificates(ctx, crt_path.data(), key_path.data());
+
+    /* Load the RSA CA certificate into the SSL_CTX structure */
+    if (!SSL_CTX_load_verify_locations(ctx, "certs/CA.pem", NULL)) {
+        cout << "failed to load certificates\n";
+        return -1;
+    }
+    SSL_CTX_set_verify(ctx, SSL_VERIFY_PEER, NULL);
+
     printf("Server listening on port %d\n", server_port);
 
     // Listen to a port
@@ -127,6 +144,7 @@ int main(int argc, char const* argv[])
     }
 
     close(socket_fd);
+    SSL_CTX_free(ctx);
 
     return 0;
 }
@@ -172,6 +190,7 @@ void sigint_handler(sig_atomic_t s)
     printf("Caught signal %d\n", s);
     close(socket_fd);
     shutdown(socket_fd, SHUT_RDWR);
+    SSL_CTX_free(ctx);
     for (auto& fd : client_fds) {
         close(*fd.second);
         shutdown(*fd.second, SHUT_RDWR);
@@ -213,6 +232,7 @@ bool is_number(const string& s, bool double_flag)
 
 pair<int, vector<string>> parse_command(string cmd)
 {
+    printf("raw cmd: %s\n", cmd.c_str());
     vector<string> args = split(cmd, "#");
     /*
     REGISTER 1
@@ -232,7 +252,18 @@ pair<int, vector<string>> parse_command(string cmd)
         cmd_type = REGISTER;
     } else if (args.size() == 2 && is_number(args[1])) {
         cmd_type = LOGIN;
+    } else if (args[0] == "TRANSACTION") {
+        cmd_type = TRANSACTION;
+        string param;
+        size_t pos;
+        if ((pos = cmd.find_first_of("#")) == string::npos)
+            pos = cmd.find_first_of("\r\n");
+        param = cmd.substr(0, pos);
+        args.clear();
+        args.push_back("TRANSACTION");
+        args.push_back(cmd.substr(pos + 1));
     } else if (args.size() == 3 && is_number(args[1], true)) {
+        // plaintext
         cmd_type = TRANSACTION;
     } else
         cmd_type = ERR;
@@ -251,6 +282,15 @@ void process_request(int id, Connection& conn)
     // after the connection is given
     current_user++;
     int connection = conn.connection;
+
+    SSL* ssl = SSL_new(ctx);
+    SSL_set_fd(ssl, connection);
+    SSL_accept(ssl);
+
+    X509* crt = SSL_get_peer_certificate(ssl);
+    EVP_PKEY* p_key = X509_get_pubkey(crt);
+    RSA* rsa_key = EVP_PKEY_get1_RSA(p_key);
+    // const char* res = "CONNECTED\r\n";
 
     struct sockaddr_in addr;
     socklen_t addr_size = sizeof(struct sockaddr_in);
@@ -272,8 +312,9 @@ void process_request(int id, Connection& conn)
 
     while (true && connection && !termination_flag) {
         // Read from the connection
-        char buffer[2048];
-        int tmp_byte_read = recv(connection, buffer, sizeof(buffer), 0); // RECV_SIGNAL
+        char buffer[MAX_LENGTH];
+        // int tmp_byte_read = recv(connection, buffer, sizeof(buffer), 0); // RECV_SIGNAL
+        int tmp_byte_read = SSL_read(ssl, buffer, sizeof(buffer) + 1);
         string raw(buffer);
 
         if (tmp_byte_read == -1 || raw.empty()) {
@@ -288,15 +329,13 @@ void process_request(int id, Connection& conn)
             }
 
             // close the connection with this user
-            printf("Online num:%d\n", online_num);
+            printf("Online num: %d\n", online_num);
             break;
         }
 
         sprintf(display_msg, "→ [%s] from %s@%d\n", raw.c_str(), clientip, clientport);
 
         printf("%s\n", display_msg);
-
-        // TODO: server functions
 
         pair<int, vector<string>>
             item = parse_command(raw);
@@ -318,7 +357,9 @@ void process_request(int id, Connection& conn)
             else
                 response += to_string(status) + " " + "FAIL\n";
 
-            send(connection, response.c_str(), response.size(), 0);
+            // send(connection, response.c_str(), response.size(), 0);
+            SSL_write(ssl, response.c_str(), response.size() + 1);
+            // printf("%s\n", response.c_str());
             break;
         }
         case LOGIN: {
@@ -338,7 +379,8 @@ void process_request(int id, Connection& conn)
                 printf("Online num: %d\n", db->user_num());
                 response += db->user_list_info();
             }
-            send(connection, response.c_str(), response.size(), 0);
+            // send(connection, response.c_str(), response.size(), 0);
+            SSL_write(ssl, response.c_str(), response.size() + 1);
             break;
         }
         case LIST: {
@@ -352,11 +394,50 @@ void process_request(int id, Connection& conn)
                 response += to_string(db->user_num()) + "\n";
                 response += db->user_list_info();
             }
-            send(connection, response.c_str(), response.size(), 0);
+            // send(connection, response.c_str(), response.size(), 0);
+            SSL_write(ssl, response.c_str(), response.size() + 1);
             break;
         }
         case TRANSACTION: {
-            int status = db->user_transaction(processed_cmd[0], processed_cmd[2], stod(processed_cmd[1]));
+            // TODO: transfer 前會先 check transaction command
+            // FIXME: fail to decrypt
+            // raw processed_cmd[1]
+            printf("transaction\n");
+            // int len = RSA_size(rsa_key);
+
+            char raw_from_cipher[MAX_LENGTH];
+            // char* raw_from_cipher = new char[len + 1];
+            memset(raw_from_cipher, 0, MAX_LENGTH);
+
+            int i = 0;
+            for (auto cmd : processed_cmd) {
+                if (i++ == 0) continue;
+                strcat(raw_from_cipher, cmd.c_str());
+            }
+
+            // ShowCerts(ssl);
+
+            char* plaintext = new char[MAX_LENGTH];
+            memset(plaintext, 0, MAX_LENGTH + 1);
+            // RSA_public_decrypt(len, (unsigned char*)buffer, (unsigned char*)plaintext, rsa_key, RSA_PKCS1_PADDING);
+            int decrypt_err = RSA_public_decrypt(256, (unsigned char*)raw_from_cipher, (unsigned char*)plaintext, rsa_key, RSA_PKCS1_PADDING);
+            printf("raw_from_cipher: [%s]\n", raw_from_cipher);
+            // printf("len: %d\n", strlen(raw_from_cipher) + 1);
+            // int decrypt_err = RSA_public_decrypt(len, (unsigned char*)raw_from_cipher, (unsigned char*)plaintext, rsa_key, RSA_PKCS1_PADDING);
+            if (decrypt_err == -1) {
+                // fail
+                printf("decrypt error\n");
+                exit(1);
+            }
+
+            string tmp_raw(plaintext);
+            pair<int, vector<string>>
+                item = parse_command(tmp_raw);
+            cmd_type = item.first;
+            vector<string> processed_cmd = item.second;
+
+            int status
+                = db->user_transaction(processed_cmd[0], processed_cmd[2], stod(processed_cmd[1]));
             if (status == TRANSFER_OK)
                 response = "transfer OK\n";
             else if (status == TRANSFER_FAIL)
@@ -380,14 +461,45 @@ void process_request(int id, Connection& conn)
                     break;
             }
 
-            send(*receiver_fd, response.c_str(), response.size(), 0);
-            send(*sender_fd, response.c_str(), response.size(), 0);
+            // verify sender and receiver
+            // if ok then send OK to receiver
+            // send(*receiver_fd, response.c_str(), response.size(), 0);
+            SSL_CTX* tmp_ctx;
+            SSL* tmp_ssl;
+            string key_path = "certs/server.key";
+            string crt_path = "certs/server.crt";
+            tmp_ctx = SSL_CTX_new(SSLv23_method());
+
+            LoadCertificates(tmp_ctx, crt_path.data(), key_path.data());
+
+            SSL_CTX_load_verify_locations(tmp_ctx, "certs/CA.pem", NULL);
+            SSL_CTX_set_verify(tmp_ctx, SSL_VERIFY_PEER, NULL);
+
+            tmp_ssl = SSL_new(tmp_ctx);
+            SSL_set_fd(tmp_ssl, *sender_fd);
+            SSL_connect(tmp_ssl);
+
+            FILE* fp = fopen("certs/server.key", "r");
+            RSA* p_key = PEM_read_RSAPrivateKey(fp, NULL, NULL, NULL);
+            fclose(fp);
+
+            int s_len = RSA_size(p_key);
+            char* ciphertext = new char[s_len + 1];
+            memset(ciphertext, 0, s_len + 1);
+            int r = RSA_private_encrypt(response.size(), (const unsigned char*)response.c_str(), (unsigned char*)ciphertext, p_key, RSA_PKCS1_PADDING);
+
+            printf("cipher: %s\n", ciphertext);
+            // SSL_write(tmp_ssl, ciphertext, RSA_size(p_key));
+            // FIXME: send nothing to client
+            SSL_write(tmp_ssl, response.c_str(), response.size());
+            // send(*sender_fd, response.c_str(), response.size(), 0);
             break;
         }
         case EXIT: {
             int status = db->user_logout(clientip, clientport);
             response += "Bye\n";
-            send(connection, response.c_str(), response.size(), 0);
+            // send(connection, response.c_str(), response.size(), 0);
+            SSL_write(ssl, response.c_str(), response.size());
             int online_num = db->user_num();
             for (int i = 0; i < client_fds.size(); i++) {
                 if (client_fds[i].first == username) {
@@ -397,14 +509,16 @@ void process_request(int id, Connection& conn)
             }
 
             // close the connection with this user
-            printf("Online num:%d\n", online_num);
+            printf("Online num: %d\n", online_num);
             // close(connection);
             // shutdown(connection, SHUT_RDWR);
             break;
         }
         default: {
             response = to_string(QUERY_ERROR);
-            send(connection, response.c_str(), response.size(), 0);
+            // send(connection, response.c_str(), response.size(), 0);
+            SSL_write(ssl, response.c_str(), response.size() + 1);
+            printf("error: %s\n", response.c_str());
             break;
         }
         }
@@ -415,8 +529,10 @@ void process_request(int id, Connection& conn)
     printf("Drop connection with %s@%d\n", clientip, clientport);
     printf("Connected clients num: %d\n", --current_user);
     --tmp_current_user;
-    close(connection);
-    shutdown(connection, SHUT_RDWR);
+    // close(connection);
+    // shutdown(connection, SHUT_RDWR);
+    SSL_shutdown(ssl);
+    SSL_free(ssl);
     return;
 }
 

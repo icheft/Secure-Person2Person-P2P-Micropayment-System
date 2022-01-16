@@ -22,18 +22,22 @@ CC=gcc
 CLIB=-std=c++17
 
 INCLUDE = -I$(WORKDIR)/include/\
-                    -I$(WORKDIR)/src/
+                    -I$(WORKDIR)/src/					
+
+OPENSSLCPPFLAGS = -I/usr/local/opt/openssl@3/include
+
+LDFLAGS = -L/usr/local/opt/openssl@3/lib
 
 SRCDIR = src
 
 UNAME := $(shell uname)
 
 ifeq ($(UNAME), Darwin)
-CFLAGS=-lstdc++ -lpthread -lsqlite3 $(INCLUDE)
+CFLAGS=-lstdc++ -lpthread -lsqlite3 $(LDFLAGS) $(INCLUDE) $(OPENSSLCPPFLAGS) -lssl -lcrypto 
 endif
 
 ifeq ($(UNAME), Linux)
-CFLAGS=-lstdc++ -pthread -lrt -lpthread -lsqlite3 $(INCLUDE)
+CFLAGS=-lstdc++ -pthread -lrt -lpthread -lsqlite3 $(INCLUDE) -lssl -lcrypto
 endif
 
 

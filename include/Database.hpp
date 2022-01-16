@@ -1,6 +1,9 @@
 #pragma once
 #include <filesystem>
 #include <iostream>
+#include <openssl/crypto.h>
+#include <openssl/err.h>
+#include <openssl/ssl.h>
 #include <sqlite3.h>
 #include <sqlite_orm/sqlite_orm.h>
 #include <stdio.h>
@@ -42,6 +45,8 @@ struct Client
     int online_status;
     int balance;
     int fd; // when establish a connection - not used
+    // store RSA key
+    // RSA* rsa_key;
 };
 
 class Database

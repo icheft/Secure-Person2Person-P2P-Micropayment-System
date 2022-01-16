@@ -116,7 +116,8 @@
     "C_Cpp.default.cppStandard": "c++17",
     "C_Cpp.default.cStandard": "c17",
     "C_Cpp.default.includePath": [
-        "./include"
+        "./include",
+        "/usr/local/opt/openssl@3/include"
     ],
     "cSpell.words": [
         "ctpl"
