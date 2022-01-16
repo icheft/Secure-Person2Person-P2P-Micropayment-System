@@ -12,6 +12,17 @@ vector<pair<string, int*>> client_fds;
 vector<pair<string, SSL*>> client_SSLs;
 int current_user = 0;
 int tmp_current_user = 0;
+
+// server will not regenerate keys dynamically
+string cert_path = "certs";
+string target = "server";
+string pem_name = "server";
+string uid = "";
+
+string key_path = cert_path + "/" + target + ".key"; //"certs/server.key";
+string crt_path = cert_path + "/" + target + ".crt"; // "certs/server.crt";
+string ca_path = cert_path + "/CA.pem"; // "certs/ca.crt";
+
 SSL_CTX* ctx;
 
 int main(int argc, char const* argv[])
@@ -79,16 +90,14 @@ int main(int argc, char const* argv[])
     ctpl::thread_pool thread_pool(LIMIT);
 
     // openssl
-    string key_path = "certs/server.key";
-    string crt_path = "certs/server.crt";
 
     ctx = SSL_CTX_new(SSLv23_method());
 
     // load certificate
     LoadCertificates(ctx, crt_path.data(), key_path.data());
 
-    /* Load the RSA CA certificate into the SSL_CTX structure */
-    if (!SSL_CTX_load_verify_locations(ctx, "certs/CA.pem", NULL)) {
+    /* Load the RSA CA certificate into the SSL_CTX structure in order to add updated certificates into CA list */
+    if (!SSL_CTX_load_verify_locations(ctx, ca_path.data(), NULL)) {
         cout << "failed to load certificates\n";
         return -1;
     }
@@ -121,6 +130,10 @@ int main(int argc, char const* argv[])
         auto addrlen = sizeof(sockaddr);
         // if (current_user >= LIMIT)
         //     continue;
+        if (!SSL_CTX_load_verify_locations(ctx, ca_path.data(), NULL)) {
+            cout << "failed to load certificates\n";
+            return -1;
+        }
         int connection = accept(socket_fd, (struct sockaddr*)&sockaddr, (socklen_t*)&addrlen);
         tmp_current_user++;
         if (tmp_current_user > LIMIT) {
@@ -287,6 +300,13 @@ void process_request(int id, Connection& conn)
     // after the connection is given
     current_user++;
     int connection = conn.connection;
+
+    /* Load the RSA CA certificate into the SSL_CTX structure */
+    if (!SSL_CTX_load_verify_locations(ctx, ca_path.data(), NULL)) {
+        cout << "failed to load certificates\n";
+        return;
+    }
+    SSL_CTX_set_verify(ctx, SSL_VERIFY_PEER, NULL);
 
     SSL* ssl = SSL_new(ctx);
     SSL_set_fd(ssl, connection);
@@ -478,7 +498,6 @@ void process_request(int id, Connection& conn)
 
             printf("cipher: %s\n", ciphertext);
             SSL_write(sender_SSL, ciphertext, RSA_size(p_key));
-            // FIXME: send nothing to client
             // SSL_write(tmp_ssl, ciphertext, r);
             // send(*sender_fd, response.c_str(), response.size(), 0);
             break;

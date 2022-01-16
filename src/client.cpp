@@ -24,9 +24,23 @@ string server_public_key;
 bool client_server_open = false; // login = true
 int cserver_fd; // client server
 
+string cert_path = "certs";
+string target = "client";
+string pem_name = "client";
+string uid;
+
+// TODO: no initialization
+string key_path = cert_path + "/" + target + ".key";
+// string key_path = ""; // cert_path + "/" + target + ".key";
+string crt_path = cert_path + "/" + target + ".crt";
+// string crt_path = ""; // cert_path + "/" + target + ".crt";
+string ca_path = cert_path + "/CA.pem";
+
 SSL_CTX* ctx;
 SSL* ssl;
 
+SSL_CTX* client_ctx;
+SSL* client_ssl;
 // exceptions
 class not_found_error : public exception
 {
@@ -79,13 +93,16 @@ int main(int argc, char const* argv[])
 
     // session time
     time_t begin = time(NULL);
+    // TODO: init
+    // uid = create_key_and_certificate(cert_path.c_str(), target.c_str(), pem_name.c_str());
 
-    string key_path = "certs/client.key";
-    string crt_path = "certs/client.crt";
+    // TODO: init
+    // key_path = cert_path + "/" + uid + "_" + target + ".key";
+    // crt_path = cert_path + "/" + uid + "_" + target + ".crt";
     ctx = SSL_CTX_new(SSLv23_method());
     LoadCertificates(ctx, crt_path.data(), key_path.data());
 
-    if (!SSL_CTX_load_verify_locations(ctx, "certs/CA.pem", NULL)) {
+    if (!SSL_CTX_load_verify_locations(ctx, ca_path.data(), NULL)) {
         cout << "failed to load certificates\n";
         return -1;
     }
@@ -179,11 +196,22 @@ int main(int argc, char const* argv[])
                 // create a client server for peer transaction
                 struct sockaddr_in cserver_address;
                 int k = 0;
+
                 // Creating socket file descriptor
                 if ((cserver_fd = socket(AF_INET, SOCK_STREAM, 0)) == -1) {
                     perror("Failed to create a socket. Now aborting.");
                     exit(EXIT_FAILURE);
                 }
+
+                // ssl
+                client_ctx = SSL_CTX_new(SSLv23_method());
+                LoadCertificates(client_ctx, crt_path.data(), key_path.data());
+
+                if (!SSL_CTX_load_verify_locations(client_ctx, ca_path.data(), NULL)) {
+                    cout << "failed to load certificates\n";
+                    return -1;
+                }
+                SSL_CTX_set_verify(client_ctx, SSL_VERIFY_PEER, NULL);
 
                 // Forcefully attaching socket to the port
                 cserver_address.sin_family = AF_INET;
@@ -303,12 +331,12 @@ char* p2p_transaction(int socket_fd)
 
     SSL_CTX* tmp_ctx;
     SSL* tmp_ssl;
-    string key_path = "certs/client.key";
-    string crt_path = "certs/client.crt";
+    // string key_path = "certs/client.key";
+    // string crt_path = "certs/client.crt";
     tmp_ctx = SSL_CTX_new(SSLv23_method());
 
     LoadCertificates(tmp_ctx, crt_path.data(), key_path.data());
-    SSL_CTX_load_verify_locations(tmp_ctx, "certs/CA.pem", NULL);
+    SSL_CTX_load_verify_locations(tmp_ctx, ca_path.data(), NULL);
     SSL_CTX_set_verify(tmp_ctx, SSL_VERIFY_PEER, NULL);
 
     int host_port;
@@ -319,7 +347,6 @@ char* p2p_transaction(int socket_fd)
         host_port = stoi(peer_info[2]);
         host_ip = peer_info[1];
     } catch (exception& e) {
-        // cout << e.what() << '\n';
         throw not_found; // display at main
     }
 
@@ -341,7 +368,7 @@ char* p2p_transaction(int socket_fd)
     strcpy(buffer, transact_msg);
     // sending
 
-    FILE* fp = fopen("certs/client.key", "r");
+    FILE* fp = fopen(key_path.c_str(), "r");
     RSA* p_key = PEM_read_RSAPrivateKey(fp, NULL, NULL, NULL);
     fclose(fp);
 
@@ -367,8 +394,6 @@ char* p2p_transaction(int socket_fd)
     X509* s_crt = SSL_get_peer_certificate(ssl);
     EVP_PKEY* s_p_key = X509_get_pubkey(s_crt);
     RSA* s_rsa_key = EVP_PKEY_get1_RSA(s_p_key);
-
-    // // FIXME: cannot read server's message
 
     bytes_read += SSL_read(ssl, buffer, 256);
     memset(rcv_msg, 0, MAX_LENGTH);
@@ -432,18 +457,23 @@ int receiving(int socket_fd)
     while (1) {
         k++;
         ready_sockets = current_sockets;
-
+        if (!SSL_CTX_load_verify_locations(client_ctx, ca_path.data(), NULL)) {
+            cout << "failed to load certificates\n";
+            return -1;
+        }
         if (select(FD_SETSIZE, &ready_sockets, NULL, NULL, NULL) < 0) {
             perror("Error");
             exit(EXIT_FAILURE);
         }
 
         for (int i = 0; i < FD_SETSIZE; i++) {
+            if (!SSL_CTX_load_verify_locations(client_ctx, ca_path.data(), NULL)) {
+                cout << "failed to load client certificate.\n";
+                exit(1);
+            }
             if (FD_ISSET(i, &ready_sockets)) {
-
                 if (i == socket_fd) {
                     int client_socket;
-
                     if ((client_socket = accept(socket_fd, (struct sockaddr*)&address,
                              (socklen_t*)&addrlen))
                         < 0) {
@@ -453,21 +483,13 @@ int receiving(int socket_fd)
                     FD_SET(client_socket, &current_sockets);
                 } else {
                     // receiving from peer
-                    SSL_CTX* tmp_ctx = SSL_CTX_new(SSLv23_method());
-                    SSL* tmp_ssl;
-                    string key_path = "certs/client.key";
-                    string crt_path = "certs/client.crt";
-                    string CA_path = "certs/CA.pem";
 
-                    LoadCertificates(tmp_ctx, crt_path.data(), key_path.data());
-
-                    if (!SSL_CTX_load_verify_locations(tmp_ctx, CA_path.data(), NULL)) {
-                        cout << "failed to load client certificate.\n";
-                        exit(1);
+                    if (!SSL_CTX_load_verify_locations(client_ctx, ca_path.data(), NULL)) {
+                        cout << "failed to load certificates\n";
+                        return -1;
                     }
-                    SSL_CTX_set_verify(tmp_ctx, SSL_VERIFY_PEER, NULL);
-
-                    tmp_ssl = SSL_new(tmp_ctx);
+                    SSL_CTX_set_verify(client_ctx, SSL_VERIFY_PEER, NULL);
+                    SSL* tmp_ssl = SSL_new(client_ctx);
                     SSL_set_fd(tmp_ssl, i);
                     SSL_accept(tmp_ssl);
 
@@ -501,7 +523,7 @@ int receiving(int socket_fd)
                     printf("\n>>> %s sent you a message\n", transfer_info[0].c_str());
 
                     // start encryption for server
-                    FILE* fp = fopen("certs/client.key", "r");
+                    FILE* fp = fopen(key_path.c_str(), "r");
                     RSA* pp_key = PEM_read_RSAPrivateKey(fp, NULL, NULL, NULL);
                     fclose(fp);
 
@@ -601,9 +623,9 @@ void print_sys_info()
         "\n*****System Information*****\n"
         "Username: %s\n"
         "Account Balance: %ld\n"
-        "Server Public Key: %s\n"
         "Online User #: %ld\n",
-        name, acct_balance, server_public_key.c_str(), online_num);
+        name, acct_balance, online_num);
+    // "Server Public Key: %s\n", server_public_key.c_str(),
 
     if (online_num > 0) {
         printf("Peer List (# - <name>#<IP>#<port>):\n");
@@ -618,7 +640,16 @@ void parse_list_info(char* msg)
 {
     vector<string> tmp = split(string(msg), "\n");
     acct_balance = stoi(tmp[0]);
+
+    // X509* s_crt = SSL_get_peer_certificate(ssl);
+    // EVP_PKEY* s_p_key = X509_get_pubkey(s_crt);
+    // RSA* s_rsa_key = EVP_PKEY_get1_RSA(s_p_key);
+
+    // EVP_PKEY to string
+    // server_public_key = LoadPKey(s_p_key);
+
     server_public_key = tmp[1];
+
     online_num = stoi(tmp[2]);
     peer_list = vector<vector<string>>();
     for (int i = 3; i < 3 + online_num; i++) {
@@ -795,6 +826,8 @@ char* exit_server(int socket_fd)
     // } else {
     //     printf("Failed to close connection with the server.\n");
     // }
+    // TODO: delete keys
+    // delete_key_and_certificate(uid, cert_path.c_str(), target.c_str(), pem_name.c_str());
     return rcv_msg;
 }
 
