@@ -30,10 +30,10 @@ string pem_name = "client";
 string uid;
 
 // TODO: no initialization
-string key_path = cert_path + "/" + target + ".key";
-// string key_path = ""; // cert_path + "/" + target + ".key";
-string crt_path = cert_path + "/" + target + ".crt";
-// string crt_path = ""; // cert_path + "/" + target + ".crt";
+// string key_path = cert_path + "/" + target + ".key";
+string key_path = ""; // cert_path + "/" + target + ".key";
+// string crt_path = cert_path + "/" + target + ".crt";
+string crt_path = ""; // cert_path + "/" + target + ".crt";
 string ca_path = cert_path + "/CA.pem";
 
 SSL_CTX* ctx;
@@ -71,10 +71,19 @@ int main(int argc, char const* argv[])
     }
 
     // initialization
+    bool uid_initialized = false;
     switch (argc) {
     case 3: {
         strcpy(SERVER_IP_ADDRESS, argv[1]);
         SERVER_PORT = atoi(argv[2]);
+        break;
+    }
+    case 4: {
+        // FIXME: tmp option
+        strcpy(SERVER_IP_ADDRESS, argv[1]);
+        SERVER_PORT = atoi(argv[2]);
+        uid = (string)argv[3];
+        uid_initialized = true;
         break;
     }
     default: {
@@ -94,11 +103,15 @@ int main(int argc, char const* argv[])
     // session time
     time_t begin = time(NULL);
     // TODO: init
-    // uid = create_key_and_certificate(cert_path.c_str(), target.c_str(), pem_name.c_str());
+    // FIXME: to dynamic
+    if (!uid_initialized)
+        uid = "1";
+
+    // uid = "create_key_and_certificate(cert_path.c_str(), target.c_str(), pem_name.c_str());"
 
     // TODO: init
-    // key_path = cert_path + "/" + uid + "_" + target + ".key";
-    // crt_path = cert_path + "/" + uid + "_" + target + ".crt";
+    key_path = cert_path + "/" + uid + "_" + target + ".key";
+    crt_path = cert_path + "/" + uid + "_" + target + ".crt";
     ctx = SSL_CTX_new(SSLv23_method());
     LoadCertificates(ctx, crt_path.data(), key_path.data());
 
@@ -383,7 +396,7 @@ char* p2p_transaction(int socket_fd)
     // string server_msg = "TRANSACTION#" + string(ciphertext);
 
     // printf(">> p2p_msg: %s\n", server_msg.c_str());
-    printf(">> ciphertext: %s\n", ciphertext);
+    // printf(">> ciphertext: %s\n", ciphertext);
     SSL_write(tmp_ssl, ciphertext, len);
 
     char tmp_msg_from_peer[MAX_LENGTH] = { 0 };
@@ -399,7 +412,9 @@ char* p2p_transaction(int socket_fd)
     memset(rcv_msg, 0, MAX_LENGTH);
     memcpy(rcv_msg, buffer, 256);
 
-    printf(">>> %s\n", buffer);
+    // printf(">>> %s\n", buffer);
+
+    printf("\n[System Info] Encrypted message from Server - <%s>\n", buffer);
 
     char* plaintext = new char[MAX_LENGTH];
     memset(plaintext, 0, MAX_LENGTH);
@@ -484,11 +499,12 @@ int receiving(int socket_fd)
                 } else {
                     // receiving from peer
 
+                    SSL_CTX_set_verify(client_ctx, SSL_VERIFY_PEER, NULL);
                     if (!SSL_CTX_load_verify_locations(client_ctx, ca_path.data(), NULL)) {
                         cout << "failed to load certificates\n";
                         return -1;
                     }
-                    SSL_CTX_set_verify(client_ctx, SSL_VERIFY_PEER, NULL);
+
                     SSL* tmp_ssl = SSL_new(client_ctx);
                     SSL_set_fd(tmp_ssl, i);
                     SSL_accept(tmp_ssl);
@@ -502,12 +518,12 @@ int receiving(int socket_fd)
                     int tmp_byte_read = SSL_read(tmp_ssl, buffer, sizeof(buffer));
                     // recv done
 
-                    printf(">>> receiving from peer; len: %d\n", len);
+                    // printf(">>> receiving from peer; len: %d\n", len);
                     bytes_read += tmp_byte_read;
 
                     char* plaintext = new char[len + 1];
 
-                    printf("buffer#%s\n", buffer);
+                    printf("\n[Notification] Someone sent you an encrypted message - <%s>\n", buffer);
 
                     int decrypt_err = RSA_public_decrypt(len, (unsigned char*)buffer, (unsigned char*)plaintext, rsa_key, RSA_PKCS1_PADDING);
 
@@ -519,8 +535,8 @@ int receiving(int socket_fd)
                     vector<string> transfer_info = split(tmp_buffer, "#");
                     // plain text done
 
-                    printf("\n>>>\n"); // now
-                    printf("\n>>> %s sent you a message\n", transfer_info[0].c_str());
+                    // printf("\n>>>\n"); // now
+                    // printf("\n>>> %s sent you a message\n", transfer_info[0].c_str());
 
                     // start encryption for server
                     FILE* fp = fopen(key_path.c_str(), "r");
@@ -535,54 +551,7 @@ int receiving(int socket_fd)
                     memset(ciphertext, 0, pp_len + 1);
                     int encrypted_length = RSA_private_encrypt((strlen(plaintext) + 1) * sizeof(char), (const unsigned char*)plaintext, (unsigned char*)ciphertext, pp_key, RSA_PKCS1_PADDING);
 
-                    // string server_msg = "TRANSACTION#" + string(ciphertext);
-                    // printf("Length: %d\n", encrypted_length);
-                    // // printf(">> p2p_msg: %s\n", server_msg.c_str());
-                    // printf(">> TRANSACTION#%s\n", ciphertext);
-                    // // SSL_write(tmp_ssl, ciphertext, len);
-                    // // end here
-                    // printf(">>>>>\n");
-                    // printf("%s\n", ciphertext);
-                    // printf("%d\n", strlen(ciphertext) + 1);
-                    // // string server_msg = "TRANSACTION#" + string(ciphertext);
                     char server_prefix[] = "TRANSACTION";
-                    // char* server_msg = new char[strlen(server_prefix) + 1 + encrypted_length];
-                    // memcpy(server_msg, server_prefix, strlen(server_prefix) + 1);
-                    // memcpy(server_msg + strlen(server_prefix), ciphertext, strlen(server_prefix) + 1 + encrypted_length);
-                    // sprintf(server_msg, "TRANSACTION#%s", ciphertext);
-
-                    // printf("msg to server: %s\n", server_msg);
-                    // FIXME: fail send encrypt message to server
-
-                    // TODO: 自己 decrypt 看看
-                    // string cmd(server_msg);
-                    // string param;
-                    // size_t pos;
-                    // if ((pos = cmd.find_first_of("#")) == string::npos)
-                    //     pos = cmd.find_first_of("\r\n");
-                    // param = cmd.substr(0, pos);
-
-                    // cmd = cmd.substr(pos + 1);
-
-                    // // char encrypted[MAX_LENGTH] = {};
-                    // char* encrypted = new char[pp_len + 1];
-                    // memset(encrypted, 0, pp_len + 1);
-
-                    // memcpy(encrypted, ciphertext, pp_len);
-
-                    // if (strcmp(encrypted, ciphertext) == 0) {
-                    //     printf("same stuff\n");
-                    // }
-
-                    // unsigned char decrypted[MAX_LENGTH] = {};
-
-                    // decrypt_err = RSA_public_decrypt(256, (unsigned char*)encrypted, decrypted, rsa_key, RSA_PKCS1_PADDING);
-
-                    // if (decrypt_err == FAIL) {
-                    //     printf("decrypt error\n");
-                    //     exit(1);
-                    // }
-                    // printf("Self-Decrypted: %s\n", decrypted);
 
                     // send to server
 
@@ -592,7 +561,6 @@ int receiving(int socket_fd)
 
                     // receiving reponse from server
                     // if ok, then show transfer info
-                    // tmp_byte_read = recv(server_fd, buffer, sizeof(buffer), 0);
                     bytes_read += tmp_byte_read;
                     // compare buffer, if buffer == "transfer OK" then list transfer info
                     // if (strcmp(buffer, "transfer OK\n") == 0) {
@@ -672,7 +640,7 @@ char* register_user(int socket_fd)
     // int snd_byte = send(socket_fd, snd_msg, sizeof(snd_msg) + 1, 0);
     // printf("sending msg: %s\n", snd_msg);
     int snd_byte = SSL_write(ssl, snd_msg, sizeof(snd_msg) + 1);
-    printf("sent msg: %s\n", snd_msg);
+    // printf("sent msg: %s\n", snd_msg);
     bytes_written += snd_byte;
 
     // int rcv_byte = recv(socket_fd, rcv_msg, MAX_LENGTH, 0);

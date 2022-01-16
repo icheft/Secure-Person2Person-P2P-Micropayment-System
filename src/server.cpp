@@ -430,7 +430,7 @@ void process_request(int id, Connection& conn)
             // TODO: two-stage implementation
             // FIXME: fail to decrypt
             // raw processed_cmd[1]
-            printf("transaction\n");
+            // printf("transaction\n");
             char buffer[MAX_LENGTH];
             // int tmp_byte_read = recv(connection, buffer, sizeof(buffer), 0); // RECV_SIGNAL
             int tmp_byte_read = SSL_read(ssl, buffer, sizeof(buffer));
@@ -438,7 +438,7 @@ void process_request(int id, Connection& conn)
 
             char* plaintext = new char[RSA_size(rsa_key) + 1];
 
-            printf("buffer#%s\n", buffer);
+            printf("\n[System Info] Encrypted transaction message received - <%s>\n", buffer);
 
             int decrypt_err = RSA_public_decrypt(256, (unsigned char*)buffer, (unsigned char*)plaintext, rsa_key, RSA_PKCS1_PADDING);
 
@@ -487,7 +487,7 @@ void process_request(int id, Connection& conn)
             // if ok then send OK to receiver
             // SSL_connect(c_ssl);
 
-            FILE* fp = fopen("certs/server.key", "r");
+            FILE* fp = fopen(key_path.c_str(), "r");
             RSA* p_key = PEM_read_RSAPrivateKey(fp, NULL, NULL, NULL);
             fclose(fp);
 
@@ -496,7 +496,7 @@ void process_request(int id, Connection& conn)
             memset(ciphertext, 0, s_len + 1);
             int r = RSA_private_encrypt(response.size(), (const unsigned char*)response.c_str(), (unsigned char*)ciphertext, p_key, RSA_PKCS1_PADDING);
 
-            printf("cipher: %s\n", ciphertext);
+            // printf("cipher: %s\n", ciphertext);
             SSL_write(sender_SSL, ciphertext, RSA_size(p_key));
             // SSL_write(tmp_ssl, ciphertext, r);
             // send(*sender_fd, response.c_str(), response.size(), 0);
