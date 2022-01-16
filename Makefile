@@ -24,9 +24,9 @@ CLIB=-std=c++17
 INCLUDE = -I$(WORKDIR)/include/\
                     -I$(WORKDIR)/src/					
 
-OPENSSLCPPFLAGS = -I/usr/local/opt/openssl@3/include
+OPENSSLCPPFLAGS = -I/usr/local/opt/openssl@1.1/include
 
-LDFLAGS = -L/usr/local/opt/openssl@3/lib
+LDFLAGS = -L/usr/local/opt/openssl@1.1/lib
 
 SRCDIR = src
 
@@ -52,18 +52,18 @@ all: client server
 
 
 # FIXME - bad name here
-client: src/client.cpp
+client: src/client.cpp include/util.hpp
 	@$(ECHO) Compiling $@
 	@$(CC) $(CLIB) $(WORKDIR)/$(SRCDIR)/client.cpp $(CFLAGS) -o client
 
 # FIXME - bad name here
-server: src/server.cpp src/Database.cpp
+server: src/server.cpp src/Database.cpp include/util.hpp
 	@$(ECHO) Compiling $@
 	@$(CC) $(CLIB) $(WORKDIR)/$(SRCDIR)/server.cpp $(WORKDIR)/$(SRCDIR)/Database.cpp $(CFLAGS) -o server
 
 
-testing: test/db-test.cpp
-	@echo $@
+testing: test/write_crt.cpp
+	@$(CC) $(CLIB) test/write_crt.cpp $(CFLAGS) -o wc
 
 clean: 
 	@rm -f client server
