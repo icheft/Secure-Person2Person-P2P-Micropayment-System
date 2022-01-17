@@ -31,9 +31,10 @@ using namespace std;
 #define EXIT 5
 #define ERR -1
 
-const char* man = "Usage: ./client <IP_address> <port_number>\n"
+const char* man = "Usage: ./client <IP_address> <port_number> [-v]\n"
                   "By default, IP_address should be 127.0.0.1;\n"
-                  "port_number should be an integer between 1024 and 65535.";
+                  "port_number should be an integer between 1024 and 65535.\n"
+                  "If [-v] or [--verbose] is specified, verbose mode will be enabled.\n";
 
 const char* notice = "Please specify an IP address and a port number to connect to.";
 

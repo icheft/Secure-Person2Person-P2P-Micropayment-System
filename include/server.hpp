@@ -48,7 +48,11 @@ using namespace std;
 #define TRANSACTION 4
 #define EXIT 5
 #define ERR -1
-// #define LIMIT 12 // TODO: change limit dynamically
+
+const char* man = "Usage: ./server <port_number> <thread_limit> [-s]\n"
+                  "port_number should be an integer between 1024 and 65535.\n"
+                  "thread_limit determines the number of users that can connect.\n"
+                  "If [-s] or [--silent] is specified, silent mode will be enabled.\n";
 
 vector<string> split(string str, string sep);
 

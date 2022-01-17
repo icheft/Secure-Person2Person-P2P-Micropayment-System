@@ -30,7 +30,6 @@ string target = "client";
 string pem_name = "client";
 string uid;
 
-// TODO: no initialization
 // string key_path = cert_path + "/" + target + ".key";
 string key_path = ""; // cert_path + "/" + target + ".key";
 // string crt_path = cert_path + "/" + target + ".crt";
@@ -42,6 +41,7 @@ SSL* ssl;
 
 SSL_CTX* client_ctx;
 SSL* client_ssl;
+bool verbose = false;
 // exceptions
 class not_found_error : public exception
 {
@@ -80,11 +80,21 @@ int main(int argc, char const* argv[])
         break;
     }
     case 4: {
-        // FIXME: tmp option
-        strcpy(SERVER_IP_ADDRESS, argv[1]);
-        SERVER_PORT = atoi(argv[2]);
-        uid = (string)argv[3];
-        uid_initialized = true;
+        if (strcmp(argv[3], "-v") == 0 || strcmp(argv[3], "--verbose") == 0) {
+            verbose = true;
+            strcpy(SERVER_IP_ADDRESS, argv[1]);
+            SERVER_PORT = atoi(argv[2]);
+        } else {
+            // using default
+            printf(
+                "%s\n"
+                "%s\n"
+                "%s\n",
+                notice, man, default_program_msg);
+            // default
+            SERVER_PORT = DEFAULT_PORT;
+            strcpy(SERVER_IP_ADDRESS, DEFAULT_IP_ADDRESS);
+        }
         break;
     }
     default: {
@@ -103,24 +113,20 @@ int main(int argc, char const* argv[])
 
     // session time
     time_t begin = time(NULL);
-    // TODO: init
-    // FIXME: to dynamic
-    if (!uid_initialized)
-        uid = "1";
 
     uid = create_key_and_certificate(cert_path.c_str(), target.c_str(), pem_name.c_str());
-    // sleep for one second
+    // sleep
     unsigned int microseconds = 10000;
     usleep(microseconds);
 
     // TODO: init
-    // printf("Using uid %s\n", uid.c_str());
     key_path = cert_path + "/" + uid + "_" + target + ".key";
     crt_path = cert_path + "/" + uid + "_" + target + ".crt";
 
     ctx = SSL_CTX_new(SSLv23_method());
     LoadCertificates(ctx, crt_path.data(), key_path.data());
 
+    // still has to decrypt message from server
     if (!SSL_CTX_load_verify_locations(ctx, ca_path.data(), NULL)) {
         cout << "failed to load certificates\n";
         return -1;
@@ -160,6 +166,8 @@ int main(int argc, char const* argv[])
 
     // print the server socket addr and port
     get_info(&address);
+
+    if (verbose) printf("Verbose mode is on.\n");
 
     // wait for user inputs
     int opt;
@@ -246,16 +254,6 @@ int main(int argc, char const* argv[])
                     break;
                     // exit(EXIT_FAILURE);
                 }
-
-                // Thread pool
-
-                // auto num_of_threads
-                //     = thread::hardware_concurrency();
-                // if (num_of_threads == 0) {
-                //     num_of_threads = 1;
-                // }
-
-                // ctpl::thread_pool thread_pool(num_of_threads);
 
                 pthread_t tid;
                 // Creating thread to keep receiving message in real time
@@ -418,18 +416,23 @@ char* p2p_transaction(int socket_fd)
     EVP_PKEY* s_p_key = X509_get_pubkey(s_crt);
     RSA* s_rsa_key = EVP_PKEY_get1_RSA(s_p_key);
 
-    bytes_read += SSL_read(ssl, buffer, 256);
+    int rcv_byte = SSL_read_D(ssl, s_rsa_key, rcv_msg, MAX_LENGTH, verbose);
 
-    // printf(">>> %s\n", buffer);
+    // bytes_read += SSL_read(ssl, buffer, 256);
 
-    printf("\n[System Info] Encrypted message from Server - <%s>\n", buffer);
+    // memset(rcv_msg, 0, MAX_LENGTH);
+    // strcpy(rcv_msg, buffer);
+    // // printf(">>> %s\n", buffer);
+    // if (verbose)
+    //     printf("\n[System Info] Encrypted message from Server - <%s>\n", buffer);
 
-    char* plaintext = new char[MAX_LENGTH];
-    memset(plaintext, 0, MAX_LENGTH);
-    RSA_public_decrypt(RSA_size(s_rsa_key), (unsigned char*)rcv_msg, (unsigned char*)plaintext, s_rsa_key, RSA_PKCS1_PADDING);
+    // char* plaintext = new char[MAX_LENGTH];
+    // memset(plaintext, 0, MAX_LENGTH);
 
-    memset(rcv_msg, 0, MAX_LENGTH);
-    strcpy(rcv_msg, plaintext);
+    // RSA_public_decrypt(RSA_size(s_rsa_key), (unsigned char*)rcv_msg, (unsigned char*)plaintext, s_rsa_key, RSA_PKCS1_PADDING);
+
+    // memset(rcv_msg, 0, MAX_LENGTH);
+    // strcpy(rcv_msg, plaintext);
     // // memset(rcv_msg, 0, MAX_LENGTH);
     // // strcpy(rcv_msg, plaintext);
     SSL_shutdown(tmp_ssl);
@@ -517,8 +520,8 @@ int receiving(int socket_fd)
         bytes_read += tmp_byte_read;
 
         char* plaintext = new char[len + 1];
-
-        printf("\n[Notification] Someone sent you an encrypted message - <%s>\n", buffer);
+        if (verbose)
+            printf("\n[Notification] Someone sent you an encrypted message - <%s>\n", buffer);
 
         int decrypt_err = RSA_public_decrypt(len, (unsigned char*)buffer, (unsigned char*)plaintext, rsa_key, RSA_PKCS1_PADDING);
 
@@ -552,7 +555,7 @@ int receiving(int socket_fd)
 
         // SSL_write(ssl, server_prefix, sizeof(server_prefix) + 1);
 
-        SSL_write_E(ssl, key_path, (string)server_prefix, MAX_LENGTH);
+        SSL_write_E(ssl, key_path, (string)server_prefix, MAX_LENGTH, verbose);
 
         SSL_write(ssl, ciphertext, 256);
 
@@ -630,7 +633,7 @@ char* register_user(int socket_fd)
     // int snd_byte = send(socket_fd, snd_msg, sizeof(snd_msg) + 1, 0);
     // printf("sending msg: %s\n", snd_msg);
     // int snd_byte = SSL_write(ssl, snd_msg, sizeof(snd_msg) + 1);
-    int snd_byte = SSL_write_E(ssl, key_path, (string)snd_msg, MAX_LENGTH);
+    int snd_byte = SSL_write_E(ssl, key_path, (string)snd_msg, MAX_LENGTH, verbose);
     // printf("sent msg: %s\n", snd_msg);
     bytes_written += snd_byte;
 
@@ -639,7 +642,8 @@ char* register_user(int socket_fd)
     X509* crt = SSL_get_peer_certificate(ssl);
     EVP_PKEY* p_key = X509_get_pubkey(crt);
     RSA* rsa_key = EVP_PKEY_get1_RSA(p_key);
-    int rcv_byte = SSL_read_D(ssl, rsa_key, rcv_msg, MAX_LENGTH);
+    int rcv_byte = SSL_read_D(ssl, rsa_key, rcv_msg, MAX_LENGTH, verbose);
+
     bytes_read += rcv_byte;
 
     return rcv_msg;
@@ -737,13 +741,13 @@ char* login_server(int socket_fd, int* login_port)
 
     // int rcv_byte = recv(socket_fd, rcv_msg, MAX_LENGTH, 0);
 
-    int snd_byte = SSL_write_E(ssl, key_path, snd_msg, MAX_LENGTH);
+    int snd_byte = SSL_write_E(ssl, key_path, snd_msg, MAX_LENGTH, verbose);
     bytes_written += snd_byte;
     // int rcv_byte = SSL_read(ssl, rcv_msg, MAX_LENGTH);
     X509* crt = SSL_get_peer_certificate(ssl);
     EVP_PKEY* p_key = X509_get_pubkey(crt);
     RSA* rsa_key = EVP_PKEY_get1_RSA(p_key);
-    int rcv_byte = SSL_read_D(ssl, rsa_key, rcv_msg, MAX_LENGTH);
+    int rcv_byte = SSL_read_D(ssl, rsa_key, rcv_msg, MAX_LENGTH, verbose);
     bytes_read += rcv_byte;
     return rcv_msg;
 }
@@ -757,13 +761,13 @@ char* request_list(int socket_fd)
 
     // int rcv_byte = recv(socket_fd, rcv_msg, MAX_LENGTH, 0);
 
-    int snd_byte = SSL_write_E(ssl, key_path, snd_msg, MAX_LENGTH);
+    int snd_byte = SSL_write_E(ssl, key_path, snd_msg, MAX_LENGTH, verbose);
     bytes_written += snd_byte;
     // int rcv_byte = SSL_read(ssl, rcv_msg, MAX_LENGTH);
     X509* crt = SSL_get_peer_certificate(ssl);
     EVP_PKEY* p_key = X509_get_pubkey(crt);
     RSA* rsa_key = EVP_PKEY_get1_RSA(p_key);
-    int rcv_byte = SSL_read_D(ssl, rsa_key, rcv_msg, MAX_LENGTH);
+    int rcv_byte = SSL_read_D(ssl, rsa_key, rcv_msg, MAX_LENGTH, verbose);
     bytes_read += rcv_byte;
     // parse_info
     // FIXME: way to identify error --> be aware when self-implemtating the server
@@ -788,14 +792,14 @@ char* exit_server(int socket_fd)
     // const char* req = cmd.c_str();
     // SSL_write(ssl, exit_msg, sizeof(exit_msg) + 1);
     // SSL_read(ssl, rcv_msg, MAX_LENGTH);
-    int snd_byte = SSL_write_E(ssl, key_path, exit_msg, MAX_LENGTH);
+    int snd_byte = SSL_write_E(ssl, key_path, exit_msg, MAX_LENGTH, verbose);
     bytes_written += snd_byte;
     // int rcv_byte = SSL_read(ssl, rcv_msg, MAX_LENGTH);
     X509* crt = SSL_get_peer_certificate(ssl);
     EVP_PKEY* p_key = X509_get_pubkey(crt);
     RSA* rsa_key = EVP_PKEY_get1_RSA(p_key);
 
-    int rcv_byte = SSL_read_D(ssl, rsa_key, rcv_msg, MAX_LENGTH);
+    int rcv_byte = SSL_read_D(ssl, rsa_key, rcv_msg, MAX_LENGTH, verbose);
 
     bytes_read += rcv_byte;
     // recv(socket_fd, rcv_msg, MAX_LENGTH, 0);

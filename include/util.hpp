@@ -128,7 +128,7 @@ SSL read with decryption
 
 >>> int tmp_byte_read = SSL_read_D(ssl, rsa_key, plaintext, MAX_LENGTH);
 */
-int SSL_read_D(SSL* ssl, RSA* rsa_key, char* decrypted, int MAX_LENGTH)
+int SSL_read_D(SSL* ssl, RSA* rsa_key, char* decrypted, int MAX_LENGTH, bool verbose = false)
 {
     char buffer[MAX_LENGTH];
     // int tmp_byte_read = recv(connection, buffer, sizeof(buffer), 0); // RECV_SIGNAL
@@ -137,7 +137,8 @@ int SSL_read_D(SSL* ssl, RSA* rsa_key, char* decrypted, int MAX_LENGTH)
 
     char* plaintext = new char[RSA_size(rsa_key) + 1];
 
-    printf("\n[System Info] Encrypted message received - <%s>\n", buffer);
+    if (verbose)
+        printf("\n[System Info] Encrypted message received - <%s>\n", buffer);
 
     int decrypt_err = RSA_public_decrypt(256, (unsigned char*)buffer, (unsigned char*)plaintext, rsa_key, RSA_PKCS1_PADDING);
 
@@ -156,8 +157,9 @@ SSL write with encryption
 
 >>> int tmp_byte_write = SSL_write_E(ssl, key_path, response, MAX_LENGTH);
 */
-int SSL_write_E(SSL* ssl, string key_path, string response, int MAX_LENGTH)
+int SSL_write_E(SSL* ssl, string key_path, string response, int MAX_LENGTH, bool verbose = false)
 {
+    // verbose option is kept for future implementation
     FILE* fp = fopen(key_path.c_str(), "r");
     RSA* p_key = PEM_read_RSAPrivateKey(fp, NULL, NULL, NULL);
     fclose(fp);

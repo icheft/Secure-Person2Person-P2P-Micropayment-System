@@ -12,6 +12,7 @@ vector<pair<string, int*>> client_fds;
 vector<pair<string, SSL*>> client_SSLs;
 int current_user = 0;
 int tmp_current_user = 0;
+bool verbose = true;
 
 // server will not regenerate keys dynamically
 string cert_path = "certs";
@@ -70,12 +71,29 @@ int main(int argc, char const* argv[])
     }
     case 3: {
         assign_port(string(argv[1]), server_port);
-        LIMIT = atoi(argv[2]) <= num_of_threads ? atoi(argv[2]) : num_of_threads;
-        printf("User limit is now set to %d\n", LIMIT);
+        if (strcmp(argv[2], "-s") == 0 || strcmp(argv[2], "--silent") == 0) {
+            verbose = false;
+            printf("User limit is now set to default: %d\n", LIMIT);
+        } else {
+            LIMIT = atoi(argv[2]) <= num_of_threads ? atoi(argv[2]) : num_of_threads;
+            printf("User limit is now set to %d\n", LIMIT);
+        }
+        break;
+    }
+    case 4: {
+        if (strcmp(argv[3], "-s") == 0 || strcmp(argv[3], "--silent") == 0) {
+            verbose = false;
+            assign_port(string(argv[1]), server_port);
+            LIMIT = atoi(argv[2]) <= num_of_threads ? atoi(argv[2]) : num_of_threads;
+            printf("User limit is now set to %d\n", LIMIT);
+        } else {
+            printf("%s\n", man);
+        }
         break;
     }
     default: {
         // using default
+        printf("%s\n", man);
         printf("Probing for an available port...\n");
         // default
         assign_port("0", server_port);
@@ -125,6 +143,8 @@ int main(int argc, char const* argv[])
 
     // server database
     db = new Database(erase, reset);
+
+    if (!verbose) printf("Silent mode is on.\n");
 
     while (true) {
         // Grab a connection from the queue
@@ -342,7 +362,7 @@ void process_request(int id, Connection& conn)
         char buffer[MAX_LENGTH];
         // int tmp_byte_read = recv(connection, buffer, sizeof(buffer), 0); // RECV_SIGNAL
         // int tmp_byte_read = SSL_read(ssl, buffer, sizeof(buffer) + 1);
-        int tmp_byte_read = SSL_read_D(ssl, rsa_key, buffer, MAX_LENGTH);
+        int tmp_byte_read = SSL_read_D(ssl, rsa_key, buffer, MAX_LENGTH, verbose);
         string raw(buffer);
 
         if (tmp_byte_read == -1 || raw.empty()) {
@@ -382,13 +402,13 @@ void process_request(int id, Connection& conn)
         case REGISTER: {
             int status = db->user_register(processed_cmd[1], clientip);
             if (status == REGISTER_OK)
-                response += to_string(status) + " " + "OK\n";
+                response += to_string(status) + " " + "OK\r\n";
             else
-                response += to_string(status) + " " + "FAIL\n";
+                response += to_string(status) + " " + "FAIL\r\n";
 
             // send(connection, response.c_str(), response.size(), 0);
             // SSL_write(ssl, response.c_str(), response.size() + 1);
-            SSL_write_E(ssl, key_path, response, MAX_LENGTH);
+            SSL_write_E(ssl, key_path, response, MAX_LENGTH, verbose);
             // printf("%s\n", response.c_str());
             break;
         }
@@ -412,7 +432,7 @@ void process_request(int id, Connection& conn)
             }
             // send(connection, response.c_str(), response.size(), 0);
             // SSL_write(ssl, response.c_str(), response.size() + 1);
-            SSL_write_E(ssl, key_path, response, MAX_LENGTH);
+            SSL_write_E(ssl, key_path, response, MAX_LENGTH, verbose);
             break;
         }
         case LIST: {
@@ -428,7 +448,7 @@ void process_request(int id, Connection& conn)
             }
             // send(connection, response.c_str(), response.size(), 0);
             // SSL_write(ssl, response.c_str(), response.size() + 1);
-            SSL_write_E(ssl, key_path, response, MAX_LENGTH);
+            SSL_write_E(ssl, key_path, response, MAX_LENGTH, verbose);
             break;
         }
         case TRANSACTION: {
@@ -439,7 +459,7 @@ void process_request(int id, Connection& conn)
             // printf("transaction\n");
             char* plaintext = new char[RSA_size(rsa_key) + 1];
 
-            int tmp_byte_read = SSL_read_D(ssl, rsa_key, plaintext, MAX_LENGTH);
+            int tmp_byte_read = SSL_read_D(ssl, rsa_key, plaintext, MAX_LENGTH, verbose);
 
             string tmp_raw(plaintext);
             pair<int, vector<string>>
@@ -479,7 +499,7 @@ void process_request(int id, Connection& conn)
             // verify sender and receiver
             // if ok then send OK to receiver
 
-            int tmp_byte_write = SSL_write_E(sender_SSL, key_path, response, MAX_LENGTH);
+            int tmp_byte_write = SSL_write_E(sender_SSL, key_path, response, MAX_LENGTH, verbose);
 
             // SSL_connect(c_ssl);
             // SSL_write(tmp_ssl, ciphertext, r);
@@ -491,7 +511,7 @@ void process_request(int id, Connection& conn)
             response += "Bye\n";
             // send(connection, response.c_str(), response.size(), 0);
             // SSL_write(ssl, response.c_str(), response.size());
-            SSL_write_E(ssl, key_path, response, MAX_LENGTH);
+            SSL_write_E(ssl, key_path, response, MAX_LENGTH, verbose);
             int online_num = db->user_num();
             for (int i = 0; i < client_fds.size(); i++) {
                 if (client_fds[i].first == username) {
@@ -511,7 +531,7 @@ void process_request(int id, Connection& conn)
             response = to_string(QUERY_ERROR);
             // send(connection, response.c_str(), response.size(), 0);
             // SSL_write(ssl, response.c_str(), response.size() + 1);
-            SSL_write_E(ssl, key_path, response, MAX_LENGTH);
+            SSL_write_E(ssl, key_path, response, MAX_LENGTH, verbose);
             printf("error: %s\n", response.c_str());
             break;
         }

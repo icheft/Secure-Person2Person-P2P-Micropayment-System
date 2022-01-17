@@ -46,8 +46,8 @@ endif
 	
 all: client server
 	@$(ECHO) All done
-	@echo 🍺 Type \"./server \<PORT\> \<LIMIT\>\" to start the server;
-	@echo 🍺 Type \"./client \<SERVER_IP\> \<SERVER_PORT\>\" to start the client.
+	@echo 🍺 Type \"./server \<PORT\> \<LIMIT\> \[-s\]\" to start the server;
+	@echo 🍺 Type \"./client \<SERVER_IP\> \<SERVER_PORT\> \[-v\]\" to start the client.
 	@echo 💬 \(Or type \"make clean\" to clean the binaries\)
 
 
