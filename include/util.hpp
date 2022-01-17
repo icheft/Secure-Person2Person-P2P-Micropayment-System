@@ -122,3 +122,56 @@ void ShowCerts(SSL* ssl)
     } else
         printf("No certificate information.\n");
 }
+
+/*
+SSL read with decryption
+
+>>> int tmp_byte_read = SSL_read_D(ssl, rsa_key, plaintext, MAX_LENGTH);
+*/
+int SSL_read_D(SSL* ssl, RSA* rsa_key, char* decrypted, int MAX_LENGTH)
+{
+    char buffer[MAX_LENGTH];
+    // int tmp_byte_read = recv(connection, buffer, sizeof(buffer), 0); // RECV_SIGNAL
+    int tmp_byte_read = SSL_read(ssl, buffer, sizeof(buffer));
+    // int len = RSA_size(rsa_key);
+
+    char* plaintext = new char[RSA_size(rsa_key) + 1];
+
+    printf("\n[System Info] Encrypted message received - <%s>\n", buffer);
+
+    int decrypt_err = RSA_public_decrypt(256, (unsigned char*)buffer, (unsigned char*)plaintext, rsa_key, RSA_PKCS1_PADDING);
+
+    if (decrypt_err == -1) {
+        printf("decrypt error\n");
+        // exit(1);
+    }
+
+    string tmp_raw(plaintext);
+    strcpy(decrypted, tmp_raw.c_str());
+    return tmp_byte_read;
+}
+
+/*
+SSL write with encryption
+
+>>> int tmp_byte_write = SSL_write_E(ssl, key_path, response, MAX_LENGTH);
+*/
+int SSL_write_E(SSL* ssl, string key_path, string response, int MAX_LENGTH)
+{
+    FILE* fp = fopen(key_path.c_str(), "r");
+    RSA* p_key = PEM_read_RSAPrivateKey(fp, NULL, NULL, NULL);
+    fclose(fp);
+
+    int s_len = RSA_size(p_key);
+    char* ciphertext = new char[s_len + 1];
+    memset(ciphertext, 0, s_len + 1);
+    int encrypt_err = RSA_private_encrypt(response.size(), (const unsigned char*)response.c_str(), (unsigned char*)ciphertext, p_key, RSA_PKCS1_PADDING);
+    if (encrypt_err == -1) {
+        printf("encrypt error\n");
+        // exit(1);
+    }
+
+    int tmp_byte_write = SSL_write(ssl, ciphertext, RSA_size(p_key));
+
+    return tmp_byte_write;
+}

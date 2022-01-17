@@ -204,20 +204,20 @@ void assign_port(string assigned_str, int& target_port, string name)
 void sigint_handler(sig_atomic_t s)
 {
     printf("Caught signal %d\n", s);
-    close(socket_fd);
-    shutdown(socket_fd, SHUT_RDWR);
-    SSL_CTX_free(ctx);
+    delete db;
     for (auto ssl : client_SSLs) {
         SSL_shutdown(ssl.second);
         SSL_free(ssl.second);
     }
-    for (auto& fd : client_fds) {
-        close(*fd.second);
-        shutdown(*fd.second, SHUT_RDWR);
-    }
+    // for (auto& fd : client_fds) {
+    //     close(*fd.second);
+    //     shutdown(*fd.second, SHUT_RDWR);
+    // }
 
+    close(socket_fd);
+    shutdown(socket_fd, SHUT_RDWR);
+    SSL_CTX_free(ctx);
     termination_flag = true; // danger
-    delete db;
     // NOTE: threads will be handled by ctpl
     exit(1);
 }
@@ -341,7 +341,8 @@ void process_request(int id, Connection& conn)
         // Read from the connection
         char buffer[MAX_LENGTH];
         // int tmp_byte_read = recv(connection, buffer, sizeof(buffer), 0); // RECV_SIGNAL
-        int tmp_byte_read = SSL_read(ssl, buffer, sizeof(buffer) + 1);
+        // int tmp_byte_read = SSL_read(ssl, buffer, sizeof(buffer) + 1);
+        int tmp_byte_read = SSL_read_D(ssl, rsa_key, buffer, MAX_LENGTH);
         string raw(buffer);
 
         if (tmp_byte_read == -1 || raw.empty()) {
@@ -386,7 +387,8 @@ void process_request(int id, Connection& conn)
                 response += to_string(status) + " " + "FAIL\n";
 
             // send(connection, response.c_str(), response.size(), 0);
-            SSL_write(ssl, response.c_str(), response.size() + 1);
+            // SSL_write(ssl, response.c_str(), response.size() + 1);
+            SSL_write_E(ssl, key_path, response, MAX_LENGTH);
             // printf("%s\n", response.c_str());
             break;
         }
@@ -409,7 +411,8 @@ void process_request(int id, Connection& conn)
                 response += db->user_list_info();
             }
             // send(connection, response.c_str(), response.size(), 0);
-            SSL_write(ssl, response.c_str(), response.size() + 1);
+            // SSL_write(ssl, response.c_str(), response.size() + 1);
+            SSL_write_E(ssl, key_path, response, MAX_LENGTH);
             break;
         }
         case LIST: {
@@ -424,7 +427,8 @@ void process_request(int id, Connection& conn)
                 response += db->user_list_info();
             }
             // send(connection, response.c_str(), response.size(), 0);
-            SSL_write(ssl, response.c_str(), response.size() + 1);
+            // SSL_write(ssl, response.c_str(), response.size() + 1);
+            SSL_write_E(ssl, key_path, response, MAX_LENGTH);
             break;
         }
         case TRANSACTION: {
@@ -433,22 +437,9 @@ void process_request(int id, Connection& conn)
             // FIXME: fail to decrypt
             // raw processed_cmd[1]
             // printf("transaction\n");
-            char buffer[MAX_LENGTH];
-            // int tmp_byte_read = recv(connection, buffer, sizeof(buffer), 0); // RECV_SIGNAL
-            int tmp_byte_read = SSL_read(ssl, buffer, sizeof(buffer));
-            // int len = RSA_size(rsa_key);
-
             char* plaintext = new char[RSA_size(rsa_key) + 1];
 
-            printf("\n[System Info] Encrypted transaction message received - <%s>\n", buffer);
-
-            int decrypt_err = RSA_public_decrypt(256, (unsigned char*)buffer, (unsigned char*)plaintext, rsa_key, RSA_PKCS1_PADDING);
-
-            if (decrypt_err == -1) {
-                printf("decrypt error\n");
-                // exit(1);
-                continue;
-            }
+            int tmp_byte_read = SSL_read_D(ssl, rsa_key, plaintext, MAX_LENGTH);
 
             string tmp_raw(plaintext);
             pair<int, vector<string>>
@@ -487,19 +478,10 @@ void process_request(int id, Connection& conn)
 
             // verify sender and receiver
             // if ok then send OK to receiver
+
+            int tmp_byte_write = SSL_write_E(sender_SSL, key_path, response, MAX_LENGTH);
+
             // SSL_connect(c_ssl);
-
-            FILE* fp = fopen(key_path.c_str(), "r");
-            RSA* p_key = PEM_read_RSAPrivateKey(fp, NULL, NULL, NULL);
-            fclose(fp);
-
-            int s_len = RSA_size(p_key);
-            char* ciphertext = new char[s_len + 1];
-            memset(ciphertext, 0, s_len + 1);
-            int r = RSA_private_encrypt(response.size(), (const unsigned char*)response.c_str(), (unsigned char*)ciphertext, p_key, RSA_PKCS1_PADDING);
-
-            // printf("cipher: %s\n", ciphertext);
-            SSL_write(sender_SSL, ciphertext, RSA_size(p_key));
             // SSL_write(tmp_ssl, ciphertext, r);
             // send(*sender_fd, response.c_str(), response.size(), 0);
             break;
@@ -508,7 +490,8 @@ void process_request(int id, Connection& conn)
             int status = db->user_logout(clientip, clientport);
             response += "Bye\n";
             // send(connection, response.c_str(), response.size(), 0);
-            SSL_write(ssl, response.c_str(), response.size());
+            // SSL_write(ssl, response.c_str(), response.size());
+            SSL_write_E(ssl, key_path, response, MAX_LENGTH);
             int online_num = db->user_num();
             for (int i = 0; i < client_fds.size(); i++) {
                 if (client_fds[i].first == username) {
@@ -527,7 +510,8 @@ void process_request(int id, Connection& conn)
         default: {
             response = to_string(QUERY_ERROR);
             // send(connection, response.c_str(), response.size(), 0);
-            SSL_write(ssl, response.c_str(), response.size() + 1);
+            // SSL_write(ssl, response.c_str(), response.size() + 1);
+            SSL_write_E(ssl, key_path, response, MAX_LENGTH);
             printf("error: %s\n", response.c_str());
             break;
         }
