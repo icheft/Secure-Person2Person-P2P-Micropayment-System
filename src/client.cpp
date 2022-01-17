@@ -7,6 +7,8 @@ using namespace std;
 #define FAIL -1
 #define MAX_LENGTH 2048
 #define CRLF "\r\n"
+// < 0 == no testing
+#define UID_TEST -1
 
 // global variables
 const char DEFAULT_IP_ADDRESS[20] = "127.0.0.1"; // Parallels "10.211.55.4"
@@ -114,7 +116,11 @@ int main(int argc, char const* argv[])
     // session time
     time_t begin = time(NULL);
 
-    uid = create_key_and_certificate(cert_path.c_str(), target.c_str(), pem_name.c_str());
+    if (UID_TEST < 0)
+        uid = create_key_and_certificate(cert_path.c_str(), target.c_str(), pem_name.c_str());
+    else
+        uid = to_string(UID_TEST);
+    // uid = 6;
     // sleep
     unsigned int microseconds = 10000;
     usleep(microseconds);
@@ -408,7 +414,8 @@ char* p2p_transaction(int socket_fd)
     memset(ciphertext, 0, len + 1);
     RSA_private_encrypt((strlen(buffer) + 1) * sizeof(char), (const unsigned char*)buffer, (unsigned char*)ciphertext, p_key, RSA_PKCS1_PADDING);
 
-    SSL_write(tmp_ssl, ciphertext, len);
+    // SSL_write(tmp_ssl, ciphertext, len);
+    SSL_write_E(tmp_ssl, key_path, buffer, MAX_LENGTH, verbose);
 
     char tmp_msg_from_peer[MAX_LENGTH] = { 0 };
 
@@ -557,7 +564,8 @@ int receiving(int socket_fd)
 
         SSL_write_E(ssl, key_path, (string)server_prefix, MAX_LENGTH, verbose);
 
-        SSL_write(ssl, ciphertext, 256);
+        // SSL_write(ssl, ciphertext, 256);
+        SSL_write_E(ssl, key_path, (string)plaintext, MAX_LENGTH, verbose);
 
         // receiving reponse from server
         // if ok, then show transfer info
@@ -622,7 +630,9 @@ char* register_user(int socket_fd)
 {
     char snd_msg[MAX_LENGTH] = "REGISTER#";
     char* rcv_msg = new char[MAX_LENGTH];
-    char tmp_name[MAX_LENGTH];
+    char tmp_name[MAX_LENGTH] = {};
+    memset(tmp_name, 0, MAX_LENGTH);
+
     printf("Enter username: ");
     scanf("%s", tmp_name);
     getchar();
@@ -652,6 +662,7 @@ char* register_user(int socket_fd)
 char* login_server(int socket_fd, int* login_port)
 {
     char snd_msg[MAX_LENGTH] = {};
+    memset(snd_msg, 0, MAX_LENGTH);
     char* rcv_msg = new char[MAX_LENGTH];
     char tmp_name[20];
     char auth;
@@ -675,7 +686,8 @@ char* login_server(int socket_fd, int* login_port)
 
     strcat(snd_msg, "#");
 
-    char user_port[6];
+    char user_port[6] = {};
+    memset(user_port, 0, 6);
     printf("Enter port (enter 0 if you are not sure which port to use): ");
     scanf("%s", user_port);
     getchar();
@@ -808,7 +820,8 @@ char* exit_server(int socket_fd)
     SSL_free(ssl);
     SSL_CTX_free(ctx);
     // TODO: delete keys
-    delete_key_and_certificate(uid, cert_path.c_str(), target.c_str(), pem_name.c_str());
+    if (UID_TEST < 0)
+        delete_key_and_certificate(uid, cert_path.c_str(), target.c_str(), pem_name.c_str());
     // // cout << rcv_msg << endl;
     // if (string(rcv_msg) == "Bye") {
     // } else {
