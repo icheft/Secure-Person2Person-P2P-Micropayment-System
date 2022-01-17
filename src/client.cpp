@@ -161,6 +161,7 @@ int main(int argc, char const* argv[])
     if (err == FAIL) {
         // fail to connect to server
         perror("Connection error");
+        delete_key_and_certificate(uid, cert_path.c_str(), target.c_str(), pem_name.c_str());
         exit(EXIT_FAILURE);
     }
 

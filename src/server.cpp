@@ -461,6 +461,8 @@ void process_request(int id, Connection& conn)
             int tmp_byte_read = SSL_read_D(ssl, rsa_key, plaintext, MAX_LENGTH, verbose);
 
             string tmp_raw(plaintext);
+            printf("→ [%s] from %s@%d\n\n", tmp_raw.c_str(), clientip, clientport);
+
             pair<int, vector<string>>
                 item = parse_command(tmp_raw);
             cmd_type = item.first;
