@@ -132,7 +132,7 @@ int SSL_read_D(SSL* ssl, RSA* rsa_key, char* decrypted, int MAX_LENGTH, bool ver
 {
     char buffer[MAX_LENGTH];
     // int tmp_byte_read = recv(connection, buffer, sizeof(buffer), 0); // RECV_SIGNAL
-    int tmp_byte_read = SSL_read(ssl, buffer, sizeof(buffer) + 1);
+    int tmp_byte_read = SSL_read(ssl, buffer, 256 + 1);
     // int len = RSA_size(rsa_key);
 
     char* plaintext = new char[RSA_size(rsa_key) + 1];
@@ -167,7 +167,7 @@ int SSL_write_E(SSL* ssl, string key_path, string response, int MAX_LENGTH, bool
     int s_len = RSA_size(p_key);
     char* ciphertext = new char[s_len + 1];
     memset(ciphertext, 0, s_len + 1);
-    int encrypt_err = RSA_private_encrypt(response.size(), (const unsigned char*)response.c_str(), (unsigned char*)ciphertext, p_key, RSA_PKCS1_PADDING);
+    int encrypt_err = RSA_private_encrypt(response.size() + 1, (const unsigned char*)response.c_str(), (unsigned char*)ciphertext, p_key, RSA_PKCS1_PADDING);
     if (encrypt_err == -1) {
         printf("encrypt error\n");
         // exit(1);
