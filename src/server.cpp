@@ -452,9 +452,7 @@ void process_request(int id, Connection& conn)
             break;
         }
         case TRANSACTION: {
-            // TODO: transfer 前會先 check transaction command
-            // TODO: two-stage implementation
-            // FIXME: fail to decrypt
+            // DONE: two-stage implementation - encrypted transaction is gauranteed
             // raw processed_cmd[1]
             // printf("transaction\n");
             char* plaintext = new char[RSA_size(rsa_key) + 1];
