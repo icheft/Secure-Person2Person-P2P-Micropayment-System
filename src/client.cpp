@@ -8,7 +8,12 @@ using namespace std;
 #define MAX_LENGTH 2048
 #define CRLF "\r\n"
 // < 0 == no testing
+
+#ifdef DEBUG
+#define UID_TEST 7
+#else
 #define UID_TEST -1
+#endif
 
 // global variables
 const char DEFAULT_IP_ADDRESS[20] = "127.0.0.1"; // Parallels "10.211.55.4"
@@ -161,7 +166,8 @@ int main(int argc, char const* argv[])
     if (err == FAIL) {
         // fail to connect to server
         perror("Connection error");
-        delete_key_and_certificate(uid, cert_path.c_str(), target.c_str(), pem_name.c_str());
+        if (UID_TEST < 0)
+            delete_key_and_certificate(uid, cert_path.c_str(), target.c_str(), pem_name.c_str());
         exit(EXIT_FAILURE);
     }
 

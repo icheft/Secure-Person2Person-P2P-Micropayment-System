@@ -61,6 +61,13 @@ server: src/server.cpp src/Database.cpp include/util.hpp
 	@$(ECHO) Compiling $@
 	@$(CC) $(CLIB) $(WORKDIR)/$(SRCDIR)/server.cpp $(WORKDIR)/$(SRCDIR)/Database.cpp $(CFLAGS) -o server
 
+debug: src/client.cpp src/server.cpp src/Database.cpp include/util.hpp
+	@$(ECHO) Compiling $@
+	@$(CC) $(CLIB) -DDEBUG $(WORKDIR)/$(SRCDIR)/client.cpp $(CFLAGS) -o client_d
+	@$(CC) $(CLIB) -DDEBUG $(WORKDIR)/$(SRCDIR)/server.cpp $(WORKDIR)/$(SRCDIR)/Database.cpp $(CFLAGS) -o server_d
+	@echo 🍺 Type \"./server_d \<PORT\> \<LIMIT\> \[-s\]\" to start the server;
+	@echo 🍺 Type \"./client_d \<SERVER_IP\> \<SERVER_PORT\> \[-v\]\" to start the client.
+	@echo 💬 \(Or type \"make clean\" to clean the binaries\)
 
 testing: test/write_crt.cpp
 	@$(CC) $(CLIB) test/write_crt.cpp $(CFLAGS) -o wc

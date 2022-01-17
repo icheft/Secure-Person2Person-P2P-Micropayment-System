@@ -19,14 +19,20 @@ toc: true
 
 ## Introduction
 
-In **Phase 02**, we are asked to implement a server-side program to handle requests sent by clients in the Micropayment System. Functions for a server-side program include *registering*, *login*, *listing*, *transacting*, and *exiting*. Simply start running the program by `./server <SERVER_PORT> <CONCURRENT_USER_LIMIT>` after compilation (which can be done by `make server`).
+In **Phase 03**, we are asked to implement a secure transmission for both server-side and client-side programs in the Micropayment System. 
 
-`CONCURRENT_USER_LIMIT` is completely optional. The maximum is set to the number of concurrent threads supported by the implementation.
+There are five functions in the system, i.e. *registering*, *login*, *listing*, *transacting*, and *exiting*. Asymmetric encryption is asked to be used in *transaction* (*transacting*), implemented by OpenSSL with public key and private key encryption and decryption. 
 
-The user manual will cover the running environment used when developing the program, the environment that this code could be used in, the usage of the server-side program, the compilation, and the references when doing this assignment.
+The implementation in this repository has adopted asymmetric encryption for every transmission between client and server. Peer-to-peer communication is also implemented using asymmetric encryption. Client program will generate a pair of certificate and private key during runtime.
+
+Simply start the server by running `./server <SERVER_PORT> <CONCURRENT_USER_LIMIT> [--silent]`. `-s` or `--silent` is passed in to suppress the output of the encrypted message in server. 
+
+Simply start the client program by running `./client <SERVER_IP> <SERVER_PORT> [--verbose]`. `-v` or `--verbose` is passed in to print the encrypted message in client. 
+
+The user manual will cover the running environment used when developing the program, the environment that this code could be used in, the usage of server and client program, the compilation, the mechanism for secure transmission, and the references when doing this assignment.
 
 
-<!-- TODO: check if the linux part is true @ Michael-->
+<!-- DONE -->
 
 ## Environment
 
@@ -43,11 +49,32 @@ It means that **you can run this program in a macOS environment** if the program
 
 I am using `sqlite3` to handle user profiles on *the backend*. By default, `sqlite3` is pre-installed in all versions of macOS[^sql].
 
+You may need to install OpenSSL additionally:
+
+```sh
+brew install openssl
+```
+
+By default, `openssl` is installed in the `/usr/local/opt/openssl` directory. If you use `brew install openssl`, you can use `openssl@3` instead of `openssl@1.1` (with deprecation warnings).
+
+When you run your code, you'll have to include the path manually as in `OPENSSLCPPFLAGS` and `LDFLAGS`:
+
+```sh
+INCLUDE = -I$(WORKDIR)/include/\
+                    -I$(WORKDIR)/src/					
+
+OPENSSLCPPFLAGS = -I/usr/local/opt/openssl@1.1/include
+LDFLAGS = -L/usr/local/opt/openssl@1.1/lib
+CFLAGS=-lstdc++ -lpthread -lsqlite3 $(LDFLAGS) $(INCLUDE) $(OPENSSLCPPFLAGS) -lssl -lcrypto 
+
+gcc -std=c++17 yourprogram.cpp $(CFLAGS) -o yourprogram
+```
+
 [^sql]: [How to install SQLite on macOS](https://flaviocopes.com/sqlite-how-to-install/)
 
 ### Ubuntu
 
-For the given `server` binary, you can run it on:
+For the given `client` and `server` binary, you can run it on:
 
 > Operating System: Ubuntu 20.04  
 > CPP Standard: C++17
@@ -65,7 +92,10 @@ To compile, **you may need to install some extra dependencies/packages** on your
 
     ```sh
     sudo apt-get install openssl
+    sudo apt-get install libssl-dev
     ```
+
+    Installing `openssl` alone is not enough. You also need to install `libssl-dev` to compile both files (as in my case).
 3. Make sure your GCC version is up-to-date (GCC 9-ish) to support `C++17` (**please ignore this if you did not mess up with your environment**)
 
     ```sh
@@ -75,24 +105,34 @@ To compile, **you may need to install some extra dependencies/packages** on your
     sudo update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-9 60 --slave /usr/bin/g++ g++ /usr/bin/g++-9 # to make sure gcc is using the latest version of GCC
     ```
 
-
-I am testing out the Linux-formatted `server` binary on [Karton](https://karton.github.io) from my MacBook. Karton is developed based on Docker containers. The code is also tested on Ubuntu 20.04 virtual box. 
+I am testing out the Linux-formatted `client` and `server` binary on [Karton](https://karton.github.io) from my MacBook. Karton is developed based on Docker containers. The code is also tested on Ubuntu 20.04 virtual box. **You may encounter strange behavior occasionally on Linux**, since the code is mostly tested on macOS.
 
 **Notice that the user interface requires [Nerd Fonts](https://github.com/ryanoasis/nerd-fonts) to render**.
 
 
-<!-- DONE: add screenshots -->
+### Certificates and Private Keys
+
+By default, you shall see a `certs/` directory listed in the root directory of the project. This directory contains the certificates and private keys used for the program so that you do not need to regenerate them on the first run.
+
+Since client's certificate and private keys will be generated in runtime, you'll only have to generate server's certificate and private key. The server's certificate and private key will be generated in the `certs/` directory.
+
+Use the following command if `server.crt` and `server.key` are missing in the `certs/` directory:
+
+```sh
+sh create_ca.sh cert server server # this will generate server.crt and server.key using the configuration file 
+sh create_ca.sh CA # this will generate a PEM file containing listed certificates 
+```
 
 ## Usage
 
-**TL;DR**:  
+**TL;DR** (assuming you don't delete the `certs/` directory):  
 
 ```sh
-./server <SERVER_PORT> <[OPTIONAL] CONCURRENT_USER_LIMIT>
+./server <SERVER_PORT> [CONCURRENT_USER_LIMIT] [--silent]
 ```
 
 ```sh
-./client <SERVER_IP> <SERVER_PORT>
+./client <SERVER_IP> <SERVER_PORT> [--verbose]
 ```
 
 ### Running Server Program

@@ -26,6 +26,8 @@ docs/*-doc.pdf
 docs/*-draft.*
 archive/
 
+client_d
+server_d
 # docs/img/2021-12-20*
 
 
