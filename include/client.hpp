@@ -1,5 +1,6 @@
 #pragma once
 #include <arpa/inet.h>
+#include <ctpl_stl.h>
 #include <ctype.h>
 #include <exception>
 #include <iostream>
@@ -18,6 +19,7 @@
 #include <string>
 #include <sys/socket.h>
 #include <sys/types.h>
+#include <thread>
 #include <time.h>
 #include <unistd.h>
 #include <vector>

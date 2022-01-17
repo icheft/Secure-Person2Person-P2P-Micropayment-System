@@ -25,6 +25,7 @@ bool client_server_open = false; // login = true
 int cserver_fd; // client server
 
 string cert_path = "certs";
+// string cert_dir = "certs/";
 string target = "client";
 string pem_name = "client";
 string uid;
@@ -107,11 +108,16 @@ int main(int argc, char const* argv[])
     if (!uid_initialized)
         uid = "1";
 
-    // uid = "create_key_and_certificate(cert_path.c_str(), target.c_str(), pem_name.c_str());"
+    uid = create_key_and_certificate(cert_path.c_str(), target.c_str(), pem_name.c_str());
+    // sleep for one second
+    unsigned int microseconds = 10000;
+    usleep(microseconds);
 
     // TODO: init
+    // printf("Using uid %s\n", uid.c_str());
     key_path = cert_path + "/" + uid + "_" + target + ".key";
     crt_path = cert_path + "/" + uid + "_" + target + ".crt";
+
     ctx = SSL_CTX_new(SSLv23_method());
     LoadCertificates(ctx, crt_path.data(), key_path.data());
 
@@ -240,9 +246,21 @@ int main(int argc, char const* argv[])
                     break;
                     // exit(EXIT_FAILURE);
                 }
+
+                // Thread pool
+
+                // auto num_of_threads
+                //     = thread::hardware_concurrency();
+                // if (num_of_threads == 0) {
+                //     num_of_threads = 1;
+                // }
+
+                // ctpl::thread_pool thread_pool(num_of_threads);
+
                 pthread_t tid;
                 // Creating thread to keep receiving message in real time
                 pthread_create(&tid, NULL, &receive_thread, &cserver_fd);
+
                 client_server_open = true;
 
                 // show information after creation
@@ -460,121 +478,221 @@ void* receive_thread(void* socket_fd)
 // Receiving messages on our port
 int receiving(int socket_fd)
 {
-    struct sockaddr_in address;
+    struct sockaddr_in sockaddr;
     char buffer[MAX_LENGTH] = { 0 };
-    int addrlen = sizeof(address);
-    fd_set current_sockets, ready_sockets;
+    int addrlen = sizeof(sockaddr);
+    auto num_of_threads = thread::hardware_concurrency();
+    if (num_of_threads == 0) {
+        num_of_threads = 1;
+    }
 
-    // Initialize my current set
-    FD_ZERO(&current_sockets);
-    FD_SET(socket_fd, &current_sockets);
-    int k = 0;
-    while (1) {
-        k++;
-        ready_sockets = current_sockets;
+    // int tmp_current_user = 0;
+    while (true) {
+        // Grab a connection from the queue
+        auto addrlen = sizeof(sockaddr);
+        // if (current_user >= LIMIT)
+        //     continue;
         if (!SSL_CTX_load_verify_locations(client_ctx, ca_path.data(), NULL)) {
             cout << "failed to load certificates\n";
             return -1;
         }
-        if (select(FD_SETSIZE, &ready_sockets, NULL, NULL, NULL) < 0) {
-            perror("Error");
+        int connection = accept(socket_fd, (struct sockaddr*)&sockaddr, (socklen_t*)&addrlen);
+        // tmp_current_user++;
+        // if (tmp_current_user > num_of_threads) {
+        //     printf("%d users attempting to connect. %d users might have to wait.\n", tmp_current_user, tmp_current_user - current_user);
+
+        //     // TODO: there should be a wait list
+        //     // TODO: maybe create another table called wait
+        // }
+        if (connection < 0) {
+            perror("Failed to grab connection");
             exit(EXIT_FAILURE);
         }
 
-        for (int i = 0; i < FD_SETSIZE; i++) {
-            if (!SSL_CTX_load_verify_locations(client_ctx, ca_path.data(), NULL)) {
-                cout << "failed to load client certificate.\n";
-                exit(1);
-            }
-            if (FD_ISSET(i, &ready_sockets)) {
-                if (i == socket_fd) {
-                    int client_socket;
-                    if ((client_socket = accept(socket_fd, (struct sockaddr*)&address,
-                             (socklen_t*)&addrlen))
-                        < 0) {
-                        perror("accept");
-                        exit(EXIT_FAILURE);
-                    }
-                    FD_SET(client_socket, &current_sockets);
-                } else {
-                    // receiving from peer
-
-                    SSL_CTX_set_verify(client_ctx, SSL_VERIFY_PEER, NULL);
-                    if (!SSL_CTX_load_verify_locations(client_ctx, ca_path.data(), NULL)) {
-                        cout << "failed to load certificates\n";
-                        return -1;
-                    }
-
-                    SSL* tmp_ssl = SSL_new(client_ctx);
-                    SSL_set_fd(tmp_ssl, i);
-                    SSL_accept(tmp_ssl);
-
-                    X509* crt = SSL_get_peer_certificate(tmp_ssl);
-                    EVP_PKEY* p_key = X509_get_pubkey(crt);
-                    RSA* rsa_key = EVP_PKEY_get1_RSA(p_key);
-                    int len = RSA_size(rsa_key);
-
-                    // int tmp_byte_read = recv(i, buffer, sizeof(buffer), 0);
-                    int tmp_byte_read = SSL_read(tmp_ssl, buffer, sizeof(buffer));
-                    // recv done
-
-                    // printf(">>> receiving from peer; len: %d\n", len);
-                    bytes_read += tmp_byte_read;
-
-                    char* plaintext = new char[len + 1];
-
-                    printf("\n[Notification] Someone sent you an encrypted message - <%s>\n", buffer);
-
-                    int decrypt_err = RSA_public_decrypt(len, (unsigned char*)buffer, (unsigned char*)plaintext, rsa_key, RSA_PKCS1_PADDING);
-
-                    if (decrypt_err == FAIL) {
-                        printf("decrypt error\n");
-                        exit(1);
-                    }
-                    string tmp_buffer(plaintext);
-                    vector<string> transfer_info = split(tmp_buffer, "#");
-                    // plain text done
-
-                    // printf("\n>>>\n"); // now
-                    // printf("\n>>> %s sent you a message\n", transfer_info[0].c_str());
-
-                    // start encryption for server
-                    FILE* fp = fopen(key_path.c_str(), "r");
-                    RSA* pp_key = PEM_read_RSAPrivateKey(fp, NULL, NULL, NULL);
-                    fclose(fp);
-
-                    int pp_len = RSA_size(pp_key);
-                    // printf("len: %d\n", len);
-                    // printf("buffer text: %s\n", buffer);
-                    // char* ciphertext = new char[pp_len + 1];
-                    char* ciphertext = new char[pp_len + 1];
-                    memset(ciphertext, 0, pp_len + 1);
-                    int encrypted_length = RSA_private_encrypt((strlen(plaintext) + 1) * sizeof(char), (const unsigned char*)plaintext, (unsigned char*)ciphertext, pp_key, RSA_PKCS1_PADDING);
-
-                    char server_prefix[] = "TRANSACTION";
-
-                    // send to server
-
-                    SSL_write(ssl, server_prefix, sizeof(server_prefix) + 1);
-
-                    SSL_write(ssl, ciphertext, 256);
-
-                    // receiving reponse from server
-                    // if ok, then show transfer info
-                    bytes_read += tmp_byte_read;
-                    // compare buffer, if buffer == "transfer OK" then list transfer info
-                    // if (strcmp(buffer, "transfer OK\n") == 0) {
-                    printf("\n[Notification] %s just sent you $%s!\n", transfer_info[0].c_str(), transfer_info[1].c_str());
-                    // }
-                    SSL_free(tmp_ssl);
-                    FD_CLR(i, &current_sockets);
-                }
-            }
+        // string request = "init";
+        SSL_CTX_set_verify(client_ctx, SSL_VERIFY_PEER, NULL);
+        if (!SSL_CTX_load_verify_locations(client_ctx, ca_path.data(), NULL)) {
+            cout << "failed to load certificates\n";
+            return -1;
         }
 
-        if (k == (FD_SETSIZE * 2))
-            break;
+        SSL* tmp_ssl = SSL_new(client_ctx);
+        SSL_set_fd(tmp_ssl, connection);
+        SSL_accept(tmp_ssl);
+
+        X509* crt = SSL_get_peer_certificate(tmp_ssl);
+        EVP_PKEY* p_key = X509_get_pubkey(crt);
+        RSA* rsa_key = EVP_PKEY_get1_RSA(p_key);
+        int len = RSA_size(rsa_key);
+
+        // int tmp_byte_read = recv(i, buffer, sizeof(buffer), 0);
+        int tmp_byte_read = SSL_read(tmp_ssl, buffer, sizeof(buffer));
+        // recv done
+
+        // printf(">>> receiving from peer; len: %d\n", len);
+        bytes_read += tmp_byte_read;
+
+        char* plaintext = new char[len + 1];
+
+        printf("\n[Notification] Someone sent you an encrypted message - <%s>\n", buffer);
+
+        int decrypt_err = RSA_public_decrypt(len, (unsigned char*)buffer, (unsigned char*)plaintext, rsa_key, RSA_PKCS1_PADDING);
+
+        if (decrypt_err == FAIL) {
+            printf("decrypt error\n");
+            exit(1);
+        }
+        string tmp_buffer(plaintext);
+        vector<string> transfer_info = split(tmp_buffer, "#");
+        // plain text done
+
+        // printf("\n>>>\n"); // now
+        // printf("\n>>> %s sent you a message\n", transfer_info[0].c_str());
+
+        // start encryption for server
+        FILE* fp = fopen(key_path.c_str(), "r");
+        RSA* pp_key = PEM_read_RSAPrivateKey(fp, NULL, NULL, NULL);
+        fclose(fp);
+
+        int pp_len = RSA_size(pp_key);
+        // printf("len: %d\n", len);
+        // printf("buffer text: %s\n", buffer);
+        // char* ciphertext = new char[pp_len + 1];
+        char* ciphertext = new char[pp_len + 1];
+        memset(ciphertext, 0, pp_len + 1);
+        int encrypted_length = RSA_private_encrypt((strlen(plaintext) + 1) * sizeof(char), (const unsigned char*)plaintext, (unsigned char*)ciphertext, pp_key, RSA_PKCS1_PADDING);
+
+        char server_prefix[] = "TRANSACTION";
+
+        // send to server
+
+        SSL_write(ssl, server_prefix, sizeof(server_prefix) + 1);
+
+        SSL_write(ssl, ciphertext, 256);
+
+        // receiving reponse from server
+        // if ok, then show transfer info
+        bytes_read += tmp_byte_read;
+        // compare buffer, if buffer == "transfer OK" then list transfer info
+        // if (strcmp(buffer, "transfer OK\n") == 0) {
+        printf("\n[Notification] %s just sent you $%s!\n", transfer_info[0].c_str(), transfer_info[1].c_str());
+        // }
+        SSL_free(tmp_ssl);
+        // FD_CLR(i, &current_sockets);
     }
+
+    // fd_set current_sockets, ready_sockets;
+
+    // // Initialize my current set
+    // FD_ZERO(&current_sockets);
+    // FD_SET(socket_fd, &current_sockets);
+    // int k = 0;
+    // while (1) {
+    //     k++;
+    //     ready_sockets = current_sockets;
+    //     if (!SSL_CTX_load_verify_locations(client_ctx, ca_path.data(), NULL)) {
+    //         cout << "failed to load certificates\n";
+    //         return -1;
+    //     }
+    //     if (select(FD_SETSIZE, &ready_sockets, NULL, NULL, NULL) < 0) {
+    //         perror("Error");
+    //         exit(EXIT_FAILURE);
+    //     }
+
+    //     for (int i = 0; i < FD_SETSIZE; i++) {
+    //         if (!SSL_CTX_load_verify_locations(client_ctx, ca_path.data(), NULL)) {
+    //             cout << "failed to load client certificate.\n";
+    //             exit(1);
+    //         }
+    //         if (FD_ISSET(i, &ready_sockets)) {
+    //             if (i == socket_fd) {
+    //                 int client_socket;
+    //                 if ((client_socket = accept(socket_fd, (struct sockaddr*)&address,
+    //                          (socklen_t*)&addrlen))
+    //                     < 0) {
+    //                     perror("accept");
+    //                     exit(EXIT_FAILURE);
+    //                 }
+    //                 FD_SET(client_socket, &current_sockets);
+    //             } else {
+    //                 // receiving from peer
+
+    //                 SSL_CTX_set_verify(client_ctx, SSL_VERIFY_PEER, NULL);
+    //                 if (!SSL_CTX_load_verify_locations(client_ctx, ca_path.data(), NULL)) {
+    //                     cout << "failed to load certificates\n";
+    //                     return -1;
+    //                 }
+
+    //                 SSL* tmp_ssl = SSL_new(client_ctx);
+    //                 SSL_set_fd(tmp_ssl, i);
+    //                 SSL_accept(tmp_ssl);
+
+    //                 X509* crt = SSL_get_peer_certificate(tmp_ssl);
+    //                 EVP_PKEY* p_key = X509_get_pubkey(crt);
+    //                 RSA* rsa_key = EVP_PKEY_get1_RSA(p_key);
+    //                 int len = RSA_size(rsa_key);
+
+    //                 // int tmp_byte_read = recv(i, buffer, sizeof(buffer), 0);
+    //                 int tmp_byte_read = SSL_read(tmp_ssl, buffer, sizeof(buffer));
+    //                 // recv done
+
+    //                 // printf(">>> receiving from peer; len: %d\n", len);
+    //                 bytes_read += tmp_byte_read;
+
+    //                 char* plaintext = new char[len + 1];
+
+    //                 printf("\n[Notification] Someone sent you an encrypted message - <%s>\n", buffer);
+
+    //                 int decrypt_err = RSA_public_decrypt(len, (unsigned char*)buffer, (unsigned char*)plaintext, rsa_key, RSA_PKCS1_PADDING);
+
+    //                 if (decrypt_err == FAIL) {
+    //                     printf("decrypt error\n");
+    //                     exit(1);
+    //                 }
+    //                 string tmp_buffer(plaintext);
+    //                 vector<string> transfer_info = split(tmp_buffer, "#");
+    //                 // plain text done
+
+    //                 // printf("\n>>>\n"); // now
+    //                 // printf("\n>>> %s sent you a message\n", transfer_info[0].c_str());
+
+    //                 // start encryption for server
+    //                 FILE* fp = fopen(key_path.c_str(), "r");
+    //                 RSA* pp_key = PEM_read_RSAPrivateKey(fp, NULL, NULL, NULL);
+    //                 fclose(fp);
+
+    //                 int pp_len = RSA_size(pp_key);
+    //                 // printf("len: %d\n", len);
+    //                 // printf("buffer text: %s\n", buffer);
+    //                 // char* ciphertext = new char[pp_len + 1];
+    //                 char* ciphertext = new char[pp_len + 1];
+    //                 memset(ciphertext, 0, pp_len + 1);
+    //                 int encrypted_length = RSA_private_encrypt((strlen(plaintext) + 1) * sizeof(char), (const unsigned char*)plaintext, (unsigned char*)ciphertext, pp_key, RSA_PKCS1_PADDING);
+
+    //                 char server_prefix[] = "TRANSACTION";
+
+    //                 // send to server
+
+    //                 SSL_write(ssl, server_prefix, sizeof(server_prefix) + 1);
+
+    //                 SSL_write(ssl, ciphertext, 256);
+
+    //                 // receiving reponse from server
+    //                 // if ok, then show transfer info
+    //                 bytes_read += tmp_byte_read;
+    //                 // compare buffer, if buffer == "transfer OK" then list transfer info
+    //                 // if (strcmp(buffer, "transfer OK\n") == 0) {
+    //                 printf("\n[Notification] %s just sent you $%s!\n", transfer_info[0].c_str(), transfer_info[1].c_str());
+    //                 // }
+    //                 SSL_free(tmp_ssl);
+    //                 FD_CLR(i, &current_sockets);
+    //             }
+    //         }
+    //     }
+
+    //     if (k == (FD_SETSIZE * 2))
+    //         break;
+    // }
     return -1;
 }
 
@@ -777,6 +895,9 @@ char* exit_server(int socket_fd)
         printf("See you next time, %s!\n", name);
     } else
         printf("See you next time!\n");
+    // TODO: delete keys
+    delete_key_and_certificate(uid, cert_path.c_str(), target.c_str(), pem_name.c_str());
+
     const char* exit_msg = "Exit";
     char* rcv_msg = new char[MAX_LENGTH];
     // send(socket_fd, exit_msg, sizeof(exit_msg) + 1, 0);
@@ -794,8 +915,6 @@ char* exit_server(int socket_fd)
     // } else {
     //     printf("Failed to close connection with the server.\n");
     // }
-    // TODO: delete keys
-    // delete_key_and_certificate(uid, cert_path.c_str(), target.c_str(), pem_name.c_str());
     return rcv_msg;
 }
 

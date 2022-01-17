@@ -8,7 +8,9 @@
 
 ### Progress
 
-+ [ ] Two-stage transaction 
++ [x] Two-stage transaction 
++ [ ] [fswatch](https://github.com/emcrisostomo/fswatch) for file changes
++ [ ] [filewatcher](https://github.com/sol-prog/cpp17-filewatcher)
 
 ### Add Certificates
 

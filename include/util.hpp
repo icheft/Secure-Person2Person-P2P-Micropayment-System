@@ -38,7 +38,10 @@ string create_key_and_certificate(const char* cert_path, const char* target, con
     // generate private key and certificate using the config
     // ssc stands for self-signed certificate
     printf("Creating dynamic Key and Certificate with target ID [%s]...\n", uid.c_str());
-    sprintf(syscmd, "openssl req -new -x509 -config %s/%s_ssc.conf -keyout %s/%s_%s.key -out %s/%s_%s.crt", cert_path, target, cert_path, uid.c_str(), pem_name, cert_path, uid.c_str(), pem_name);
+    // sprintf(syscmd, "openssl req -new -x509 -config %s/%s_ssc.conf -keyout %s/%s_%s.key -out %s/%s_%s.crt", cert_path, target, cert_path, uid.c_str(), pem_name, cert_path, uid.c_str(), pem_name);
+    sprintf(syscmd, "openssl req -x509 -sha256 -nodes -days 365 -newkey rsa:2048 -keyout %s/%s_%s.key -out %s/%s_%s.crt -subj \"/C=TW/ST=Taiwan/L=TPE/O=NTU/OU=IM/CN=localhost/emailAddress=%s_%s@icheft\"", cert_path, uid.c_str(), pem_name, cert_path, uid.c_str(), pem_name, uid.c_str(), pem_name);
+    // openssl req -new -x509 -config %s/%s_ssc.conf -keyout %s/%s_%s.key -out %s/%s_%s.crt", cert_path, target, cert_path, uid.c_str(), pem_name, cert_path, uid.c_str(), pem_name);
+    // openssl req -x509 -sha256 -nodes -days 365 -newkey rsa:2048 -keyout a.key -out a.crt -subj "/C=TW/ST=Taiwan/L=TPE/O=NTU/OU=IM/CN=localhost/emailAddress=uid_client@icheft"
 
     system(syscmd);
     printf("Done.\n");

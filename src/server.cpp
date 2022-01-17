@@ -21,7 +21,7 @@ string uid = "";
 
 string key_path = cert_path + "/" + target + ".key"; //"certs/server.key";
 string crt_path = cert_path + "/" + target + ".crt"; // "certs/server.crt";
-string ca_path = cert_path + "/CA.pem"; // "certs/ca.crt";
+string ca_path = cert_path + "/CA.pem"; // "certs/CA.pem";
 
 SSL_CTX* ctx;
 
@@ -95,7 +95,8 @@ int main(int argc, char const* argv[])
 
     // load certificate
     LoadCertificates(ctx, crt_path.data(), key_path.data());
-
+    // FIXME: don't read util connected
+    // weird bug
     /* Load the RSA CA certificate into the SSL_CTX structure in order to add updated certificates into CA list */
     if (!SSL_CTX_load_verify_locations(ctx, ca_path.data(), NULL)) {
         cout << "failed to load certificates\n";
@@ -130,6 +131,7 @@ int main(int argc, char const* argv[])
         auto addrlen = sizeof(sockaddr);
         // if (current_user >= LIMIT)
         //     continue;
+        // FIXME: don't read util connected
         if (!SSL_CTX_load_verify_locations(ctx, ca_path.data(), NULL)) {
             cout << "failed to load certificates\n";
             return -1;
@@ -250,7 +252,7 @@ bool is_number(const string& s, bool double_flag)
 
 pair<int, vector<string>> parse_command(string cmd)
 {
-    printf("raw cmd: %s\n", cmd.c_str());
+    // printf("raw cmd: %s\n", cmd.c_str());
     vector<string> args = split(cmd, "#");
     /*
     REGISTER 1
