@@ -132,7 +132,7 @@ int SSL_read_D(SSL* ssl, RSA* rsa_key, char* decrypted, int MAX_LENGTH, bool ver
 {
     char buffer[MAX_LENGTH];
     // int tmp_byte_read = recv(connection, buffer, sizeof(buffer), 0); // RECV_SIGNAL
-    int tmp_byte_read = SSL_read(ssl, buffer, sizeof(buffer));
+    int tmp_byte_read = SSL_read(ssl, buffer, sizeof(buffer) + 1);
     // int len = RSA_size(rsa_key);
 
     char* plaintext = new char[RSA_size(rsa_key) + 1];
@@ -147,8 +147,8 @@ int SSL_read_D(SSL* ssl, RSA* rsa_key, char* decrypted, int MAX_LENGTH, bool ver
         // exit(1);
     }
 
-    string tmp_raw(plaintext);
-    strcpy(decrypted, tmp_raw.c_str());
+    // string tmp_raw(plaintext);
+    memcpy(decrypted, plaintext, strlen(plaintext) + 1);
     return tmp_byte_read;
 }
 
@@ -173,7 +173,7 @@ int SSL_write_E(SSL* ssl, string key_path, string response, int MAX_LENGTH, bool
         // exit(1);
     }
 
-    int tmp_byte_write = SSL_write(ssl, ciphertext, RSA_size(p_key));
+    int tmp_byte_write = SSL_write(ssl, ciphertext, RSA_size(p_key) + 1);
 
     return tmp_byte_write;
 }

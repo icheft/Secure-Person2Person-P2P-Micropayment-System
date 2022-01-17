@@ -754,7 +754,8 @@ char* login_server(int socket_fd, int* login_port)
 
 char* request_list(int socket_fd)
 {
-    const char* snd_msg = "List";
+    // const char* snd_msg = "List";
+    string snd_msg = "List";
     char* rcv_msg = new char[MAX_LENGTH];
     // int snd_byte = send(socket_fd, snd_msg, sizeof(snd_msg) + 1, 0);
     // bytes_written += snd_byte;

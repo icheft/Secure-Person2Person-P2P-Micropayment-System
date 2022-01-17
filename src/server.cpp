@@ -284,9 +284,9 @@ pair<int, vector<string>> parse_command(string cmd)
     */
     int cmd_type;
 
-    if (args.size() == 1 && args[0] == "Exit") {
+    if (args.size() == 1 && (args[0] == "Exit" || args[0].find("Exit") != string::npos)) {
         cmd_type = EXIT;
-    } else if (args.size() == 1 && args[0] == "List") {
+    } else if (args.size() == 1 && (args[0] == "List" || args[0].find("List") != string::npos)) {
         cmd_type = LIST; // Please login first\n
     } else if (args.size() == 2 && args[0] == "REGISTER") {
         cmd_type = REGISTER;
@@ -359,7 +359,8 @@ void process_request(int id, Connection& conn)
 
     while (true && connection && !termination_flag) {
         // Read from the connection
-        char buffer[MAX_LENGTH];
+        char buffer[MAX_LENGTH] = {};
+        memset(buffer, 0, MAX_LENGTH);
         // int tmp_byte_read = recv(connection, buffer, sizeof(buffer), 0); // RECV_SIGNAL
         // int tmp_byte_read = SSL_read(ssl, buffer, sizeof(buffer) + 1);
         int tmp_byte_read = SSL_read_D(ssl, rsa_key, buffer, MAX_LENGTH, verbose);
