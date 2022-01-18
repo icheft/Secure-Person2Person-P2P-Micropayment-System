@@ -10,7 +10,7 @@ using namespace std;
 // < 0 == no testing
 
 #ifdef DEBUG
-#define UID_TEST 7
+#define UID_TEST 8
 #else
 #define UID_TEST -1
 #endif

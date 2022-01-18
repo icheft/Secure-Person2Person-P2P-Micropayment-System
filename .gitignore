@@ -29,7 +29,7 @@ archive/
 client_d
 server_d
 # docs/img/2021-12-20*
-docs/img/2022-01-18*
+# docs/img/2022-01-18*
 
 
 # Created by https://www.toptal.com/developers/gitignore/api/macos,linux,c++,qt,qtcreator,vim,latex,python,c,cmake,zsh
