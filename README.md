@@ -1,4 +1,4 @@
-<h1 align="center">A Secure Person2Person (P2P) Micropayment System - OpenSSL</h1>
+<h1 align="center">A Secure Person2Person (P2P) Micropayment System w/ OpenSSL</h1>
 
 <h3 align="center">IM 3010 Programming Assignment: Phase 03 Implementation</h3>
 
