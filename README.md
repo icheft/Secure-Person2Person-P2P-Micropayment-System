@@ -1,7 +1,9 @@
 <h1 align="center">A Secure Person2Person (P2P) Micropayment System w/ OpenSSL</h1>
 
-<h3 align="center">IM 3010 Programming Assignment: Phase 03 Implementation</h3>
+<h3 align="center">IM 3010 Programming Assignment: Phase 03 Implementation - Simplified Version 💩</h3>
 
+
++ [💩](#)
 + [Introduction](#introduction)
 + [Environment](#environment)
     + [macOS](#macos)
@@ -41,7 +43,6 @@
         + [Client](#client)
         + [Server](#server)
     + [ToDos and References](#todos-and-references)
-
 
 ## Introduction
 

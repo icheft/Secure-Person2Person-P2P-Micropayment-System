@@ -72,6 +72,10 @@ debug: src/client.cpp src/server.cpp src/Database.cpp include/util.hpp
 testing: test/write_crt.cpp
 	@$(CC) $(CLIB) test/write_crt.cpp $(CFLAGS) -o wc
 
+simple: src/simple.cpp
+	@$(CC) $(CLIB) src/simple.cpp $(CFLAGS) -o simple
+
+
 clean: 
 	@rm -f client server
 	@echo 🧹 client and server binaries are now removed.
