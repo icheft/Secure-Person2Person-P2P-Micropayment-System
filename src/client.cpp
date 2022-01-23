@@ -1,10 +1,17 @@
 #include "client.hpp"
+#include "util.hpp"
 
 using namespace std;
 
 #define CMD_LENGTH 20
 #define FAIL -1
-#define MAX_LENGTH 1024
+#define MAX_LENGTH 2048
+
+#ifdef DEBUG
+#define UID_TEST 8
+#else
+#define UID_TEST -1
+#endif
 
 // global variables
 const char DEFAULT_IP_ADDRESS[20] = "10.211.55.4"; // Parallels "10.211.55.4"
@@ -18,9 +25,27 @@ long bytes_read = 0, bytes_written = 0;
 long acct_balance = 0;
 long online_num = 0;
 vector<vector<string>> peer_list;
-string server_public_key;
+// string server_public_key;
 bool client_server_open = false; // login = true
 int cserver_fd; // client server
+
+bool verbose = false;
+
+// ssl
+string server_pubkey = "";
+
+string cert_path = "certs";
+// string cert_dir = "certs/";
+string target = "client";
+string pem_name = "client";
+string uid = "";
+
+string key_path = ""; // cert_path + "/" + target + ".key";
+string crt_path = ""; // cert_path + "/" + target + ".crt";
+string pubkey_path = ""; // cert_path + "/" + target + ".crt";
+
+string private_key = "";
+string public_key = "";
 
 // exceptions
 class not_found_error : public exception
@@ -44,10 +69,29 @@ int main(int argc, char const* argv[])
     }
 
     // initialization
+    bool uid_initialized = false;
     switch (argc) {
     case 3: {
         strcpy(SERVER_IP_ADDRESS, argv[1]);
         SERVER_PORT = atoi(argv[2]);
+        break;
+    }
+    case 4: {
+        if (strcmp(argv[3], "-v") == 0 || strcmp(argv[3], "--verbose") == 0) {
+            verbose = true;
+            strcpy(SERVER_IP_ADDRESS, argv[1]);
+            SERVER_PORT = atoi(argv[2]);
+        } else {
+            // using default
+            printf(
+                "%s\n"
+                "%s\n"
+                "%s\n",
+                notice, man, default_program_msg);
+            // default
+            SERVER_PORT = DEFAULT_PORT;
+            strcpy(SERVER_IP_ADDRESS, DEFAULT_IP_ADDRESS);
+        }
         break;
     }
     default: {
@@ -91,10 +135,14 @@ int main(int argc, char const* argv[])
         perror("Connection error");
         exit(EXIT_FAILURE);
     }
-
+    // print server public key
+    char buffer[MAX_LENGTH];
+    recv(server_fd, buffer, sizeof(buffer), 0); // RECV_SIGNAL
+    server_pubkey = (string)buffer;
     // print the server socket addr and port
     get_info(&address);
-
+    printf("Server Public Key:\n%s\n", server_pubkey.c_str());
+    if (verbose) printf("Verbose mode is on.\n");
     // wait for user inputs
     int opt;
     do {
@@ -117,6 +165,7 @@ int main(int argc, char const* argv[])
         // end option
 
         char* rcv_msg = new char[MAX_LENGTH];
+        memset(rcv_msg, 0, MAX_LENGTH);
 
         switch (opt) {
         case REGISTER: {
@@ -136,8 +185,8 @@ int main(int argc, char const* argv[])
             // listen to other users (always listening)
             vector<string> res = split(rcv_msg, "\n");
             int status = 100; // 100 OK
-            if (res.size() <= 3) {
-                // // sth may happen
+            if (res.size() <= 2) {
+                // sth may happen
                 // if (res.size() <= 2)
                 //     status = stoi(res[0]);
                 printf("\n%s\n", rcv_msg);
@@ -146,6 +195,15 @@ int main(int argc, char const* argv[])
 
             if (!client_server_open && status != 220) {
                 // if not equal to AUTH_FAIL
+                if (UID_TEST < 0)
+                    uid = create_key_and_certificate(cert_path.c_str(), target.c_str(), pem_name.c_str());
+                else
+                    uid = to_string(UID_TEST);
+                key_path = cert_path + "/" + uid + "_" + target + ".key";
+                crt_path = cert_path + "/" + uid + "_" + target + ".crt";
+                pubkey_path = cert_path + "/" + uid + "_" + target + ".pem";
+                public_key = readKey(pubkey_path);
+                private_key = readKey(key_path);
                 // create a client server for peer transaction
                 struct sockaddr_in cserver_address;
                 int k = 0;
@@ -287,11 +345,19 @@ char* p2p_transaction(int socket_fd)
     }
     char buffer[MAX_LENGTH] = { 0 };
     strcpy(buffer, transact_msg);
-    // sending
-    bytes_written += send(peer_sock, buffer, sizeof(buffer), 0);
+    // get public key first
+    char tmp[MAX_LENGTH];
+    recv(peer_sock, tmp, sizeof(tmp), 0); // RECV_SIGNAL
+    string peer_pubkey = (string)tmp;
+    printf("\nPeer Public Key:\n%s\n", peer_pubkey.c_str());
+    // bytes_written += send(peer_sock, public_key.c_str(), sizeof(buffer), 0);
+    bytes_written += send_P3(peer_sock, buffer, sizeof(buffer), peer_pubkey, _PUBLIC, verbose);
     char tmp_msg_from_peer[MAX_LENGTH] = { 0 };
     close(peer_sock);
-    bytes_read += recv(server_fd, rcv_msg, MAX_LENGTH, 0);
+    // bytes_read += recv(server_fd, rcv_msg, MAX_LENGTH, 0);
+
+    int rcv_byte = recv_P3(server_fd, rcv_msg, MAX_LENGTH, server_pubkey, _PUBLIC, verbose);
+    bytes_read += rcv_byte;
 
     return rcv_msg; // transfer OK
 }
@@ -327,51 +393,32 @@ void* receive_thread(void* socket_fd)
 // Receiving messages on our port
 int receiving(int socket_fd)
 {
-    struct sockaddr_in address;
-    char buffer[2000] = { 0 };
-    int addrlen = sizeof(address);
-    fd_set current_sockets, ready_sockets;
+    struct sockaddr_in sockaddr;
+    char buffer[MAX_LENGTH] = { 0 };
+    int addrlen = sizeof(sockaddr);
+    // auto num_of_threads = thread::hardware_concurrency();
+    // if (num_of_threads == 0) {
+    //     num_of_threads = 1;
+    // }
 
-    // Initialize my current set
-    FD_ZERO(&current_sockets);
-    FD_SET(socket_fd, &current_sockets);
-    int k = 0;
-    while (1) {
-        k++;
-        ready_sockets = current_sockets;
-
-        if (select(FD_SETSIZE, &ready_sockets, NULL, NULL, NULL) < 0) {
-            perror("Error");
-            exit(EXIT_FAILURE);
+    while (true) {
+        int connection = accept(socket_fd, (struct sockaddr*)&sockaddr, (socklen_t*)&addrlen);
+        if (connection == FAIL) {
+            printf("\nConnection Failed \n");
+            return -1;
         }
+        send(connection, public_key.c_str(), public_key.size(), 0);
+        int byte_read = recv_P3(connection, buffer, MAX_LENGTH, private_key, _PRIVATE, verbose);
+        bytes_read += byte_read;
+        vector<string> transfer_info = split(buffer, "#");
 
-        for (int i = 0; i < FD_SETSIZE; i++) {
-            if (FD_ISSET(i, &ready_sockets)) {
+        // send(server_fd, buffer, tmp_byte_read, 0);
+        // bytes_read += tmp_byte_read;
 
-                if (i == socket_fd) {
-                    int client_socket;
+        int snd_byte = send_P3(server_fd, buffer, sizeof(buffer), server_pubkey, _PUBLIC, verbose);
+        bytes_written += snd_byte;
 
-                    if ((client_socket = accept(socket_fd, (struct sockaddr*)&address,
-                             (socklen_t*)&addrlen))
-                        < 0) {
-                        perror("accept");
-                        exit(EXIT_FAILURE);
-                    }
-                    FD_SET(client_socket, &current_sockets);
-                } else {
-                    // receiving
-                    int tmp_byte_read = recv(i, buffer, sizeof(buffer), 0);
-                    vector<string> transfer_info = split(buffer, "#");
-                    send(server_fd, buffer, tmp_byte_read, 0);
-                    bytes_read += tmp_byte_read;
-                    printf("\n[Notification] %s just sent you $%s!\n", transfer_info[0].c_str(), transfer_info[1].c_str());
-                    FD_CLR(i, &current_sockets);
-                }
-            }
-        }
-
-        if (k == (FD_SETSIZE * 2))
-            break;
+        printf("\n[Notification] %s just sent you $%s!\n", transfer_info[0].c_str(), transfer_info[1].c_str());
     }
     return -1;
 }
@@ -385,13 +432,22 @@ void get_info(struct sockaddr_in* address)
 
 void print_sys_info()
 {
-    printf(
-        "\n*****System Information*****\n"
-        "Username: %s\n"
-        "Account Balance: %ld\n"
-        "Server Public Key: %s\n"
-        "Online User #: %ld\n",
-        name, acct_balance, server_public_key.c_str(), online_num);
+    if (verbose)
+        printf(
+            "\n*****System Information*****\n"
+            "Username: %s\n"
+            "Account Balance: %ld\n"
+            "Server Public Key: \n%s\n"
+            "Online User #: %ld\n",
+            name, acct_balance, server_pubkey.c_str(), online_num);
+    else {
+        printf(
+            "\n*****System Information*****\n"
+            "Username: %s\n"
+            "Account Balance: %ld\n"
+            "Online User #: %ld\n",
+            name, acct_balance, online_num);
+    }
 
     if (online_num > 0) {
         printf("Peer List (# - <name>#<IP>#<port>):\n");
@@ -406,10 +462,10 @@ void parse_list_info(char* msg)
 {
     vector<string> tmp = split(string(msg), "\n");
     acct_balance = stoi(tmp[0]);
-    server_public_key = tmp[1];
-    online_num = stoi(tmp[2]);
+    // server_public_key = tmp[1];
+    online_num = stoi(tmp[1]);
     peer_list = vector<vector<string>>();
-    for (int i = 3; i < 3 + online_num; i++) {
+    for (int i = 2; i < 2 + online_num; i++) {
         peer_list.push_back(split(tmp[i], "#"));
     }
 }
@@ -426,10 +482,12 @@ char* register_user(int socket_fd)
     if (!client_server_open) {
         strcpy(name, tmp_name);
     }
-    int snd_byte = send(socket_fd, snd_msg, sizeof(snd_msg) + 1, 0);
+    // int snd_byte = send(socket_fd, snd_msg, sizeof(snd_msg), 0);
+    int snd_byte = send_P3(socket_fd, snd_msg, sizeof(snd_msg), server_pubkey, _PUBLIC, verbose);
     bytes_written += snd_byte;
 
-    int rcv_byte = recv(socket_fd, rcv_msg, MAX_LENGTH, 0);
+    // int rcv_byte = recv(socket_fd, rcv_msg, MAX_LENGTH, 0);
+    int rcv_byte = recv_P3(socket_fd, rcv_msg, MAX_LENGTH, server_pubkey, _PUBLIC, verbose);
     bytes_read += rcv_byte;
 
     return rcv_msg;
@@ -439,6 +497,7 @@ char* login_server(int socket_fd, int* login_port)
 {
     char snd_msg[MAX_LENGTH] = {};
     char* rcv_msg = new char[MAX_LENGTH];
+    memset(rcv_msg, 0, MAX_LENGTH);
     char tmp_name[20];
     char auth;
     while (true) {
@@ -521,11 +580,12 @@ char* login_server(int socket_fd, int* login_port)
     }
 
     strcat(snd_msg, to_string(*login_port).c_str());
-    // send message to server
-    int snd_byte = send(socket_fd, snd_msg, sizeof(snd_msg) + 1, 0);
+    // int snd_byte = send(socket_fd, snd_msg, sizeof(snd_msg), 0);
+    int snd_byte = send_P3(socket_fd, snd_msg, sizeof(snd_msg), server_pubkey, _PUBLIC, verbose);
     bytes_written += snd_byte;
 
-    int rcv_byte = recv(socket_fd, rcv_msg, MAX_LENGTH, 0);
+    // int rcv_byte = recv(socket_fd, rcv_msg, MAX_LENGTH, 0);
+    int rcv_byte = recv_P3(socket_fd, rcv_msg, MAX_LENGTH, server_pubkey, _PUBLIC, verbose);
     bytes_read += rcv_byte;
     return rcv_msg;
 }
@@ -534,10 +594,12 @@ char* request_list(int socket_fd)
 {
     const char* snd_msg = "List";
     char* rcv_msg = new char[MAX_LENGTH];
-    int snd_byte = send(socket_fd, snd_msg, sizeof(snd_msg) + 1, 0);
+    // int snd_byte = send(socket_fd, snd_msg, sizeof(snd_msg), 0);
+    int snd_byte = send_P3(socket_fd, snd_msg, sizeof(snd_msg), server_pubkey, _PUBLIC, verbose);
     bytes_written += snd_byte;
 
-    int rcv_byte = recv(socket_fd, rcv_msg, MAX_LENGTH, 0);
+    // int rcv_byte = recv(socket_fd, rcv_msg, MAX_LENGTH, 0);
+    int rcv_byte = recv_P3(socket_fd, rcv_msg, MAX_LENGTH, server_pubkey, _PUBLIC, verbose);
     bytes_read += rcv_byte;
     // parse_info
     // FIXME: way to identify error --> be aware when self-implemtating the server
@@ -556,10 +618,21 @@ char* exit_server(int socket_fd)
         printf("See you next time!\n");
     const char* exit_msg = "Exit";
     char* rcv_msg = new char[MAX_LENGTH];
-    send(socket_fd, exit_msg, sizeof(exit_msg) + 1, 0);
-    recv(socket_fd, rcv_msg, MAX_LENGTH, 0);
+    // send(socket_fd, exit_msg, sizeof(exit_msg), 0);
+    // recv(socket_fd, rcv_msg, MAX_LENGTH, 0);
+
+    // int snd_byte = send(socket_fd, snd_msg, sizeof(snd_msg), 0);
+    int snd_byte = send_P3(socket_fd, exit_msg, sizeof(exit_msg), server_pubkey, _PUBLIC, verbose);
+    bytes_written += snd_byte;
+
+    // int rcv_byte = recv(socket_fd, rcv_msg, MAX_LENGTH, 0);
+    int rcv_byte = recv_P3(socket_fd, rcv_msg, MAX_LENGTH, server_pubkey, _PUBLIC, verbose);
+    bytes_read += rcv_byte;
     // close(socket_fd);
     close(socket_fd);
+
+    if (UID_TEST < 0 && client_server_open)
+        delete_key_and_certificate(uid, cert_path.c_str(), target.c_str(), pem_name.c_str());
     // // cout << rcv_msg << endl;
     // if (string(rcv_msg) == "Bye") {
     // } else {

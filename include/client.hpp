@@ -1,10 +1,14 @@
 #pragma once
 #include <arpa/inet.h>
+#include <ctpl_stl.h>
 #include <ctype.h>
 #include <exception>
 #include <iostream>
 #include <netdb.h>
 #include <netinet/in.h>
+#include <openssl/crypto.h>
+#include <openssl/err.h>
+#include <openssl/ssl.h>
 #include <pthread.h>
 #include <signal.h> // sigaction
 #include <stdbool.h>
@@ -15,9 +19,11 @@
 #include <string>
 #include <sys/socket.h>
 #include <sys/types.h>
+#include <thread>
 #include <time.h>
 #include <unistd.h>
 #include <vector>
+
 using namespace std;
 #define REGISTER 1
 #define LOGIN 2

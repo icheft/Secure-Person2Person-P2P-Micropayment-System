@@ -1,6 +1,9 @@
 #pragma once
 #include <filesystem>
 #include <iostream>
+#include <openssl/crypto.h>
+#include <openssl/err.h>
+#include <openssl/ssl.h>
 #include <sqlite3.h>
 #include <sqlite_orm/sqlite_orm.h>
 #include <stdio.h>
@@ -26,6 +29,7 @@
 #define TRANSFER_OK 130
 #define TRANSFER_FAIL 260
 #define TRANSFER_SENDER_BANKRUPT 270
+#define TRANSFER_SELF_FAIL 280
 
 #define QUERY_OK 300
 #define QUERY_ERROR 400

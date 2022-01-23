@@ -1,4 +1,7 @@
 #include "server.hpp"
+#include "util.hpp"
+
+#define MAX_LENGTH 2048
 
 // global variables for signal handler
 Database* db;
@@ -6,10 +9,24 @@ int socket_fd;
 bool termination_flag = false; // be careful of what you wish for
 
 const int connection_limit = 10;
-string public_key = "public_key";
 vector<pair<string, int*>> client_fds;
 int current_user = 0;
 int tmp_current_user = 0;
+
+bool verbose = true;
+
+// server will not regenerate keys dynamically
+string cert_path = "certs";
+string target = "server";
+string pem_name = "server";
+string uid = "";
+
+string key_path = cert_path + "/" + target + ".key"; //"certs/server.key";
+string crt_path = cert_path + "/" + target + ".crt"; // "certs/server.crt";
+string pubkey_path = cert_path + "/" + target + ".pem";
+
+string public_key = readKey(pubkey_path);
+string private_key = readKey(key_path);
 
 int main(int argc, char const* argv[])
 {
@@ -56,12 +73,29 @@ int main(int argc, char const* argv[])
     }
     case 3: {
         assign_port(string(argv[1]), server_port);
-        LIMIT = atoi(argv[2]) <= num_of_threads ? atoi(argv[2]) : num_of_threads;
-        printf("User limit is now set to %d\n", LIMIT);
+        if (strcmp(argv[2], "-s") == 0 || strcmp(argv[2], "--silent") == 0) {
+            verbose = false;
+            printf("User limit is now set to default: %d\n", LIMIT);
+        } else {
+            LIMIT = atoi(argv[2]) <= num_of_threads ? atoi(argv[2]) : num_of_threads;
+            printf("User limit is now set to %d\n", LIMIT);
+        }
+        break;
+    }
+    case 4: {
+        if (strcmp(argv[3], "-s") == 0 || strcmp(argv[3], "--silent") == 0) {
+            verbose = false;
+            assign_port(string(argv[1]), server_port);
+            LIMIT = atoi(argv[2]) <= num_of_threads ? atoi(argv[2]) : num_of_threads;
+            printf("User limit is now set to %d\n", LIMIT);
+        } else {
+            printf("%s\n", man);
+        }
         break;
     }
     default: {
         // using default
+        printf("%s\n", man);
         printf("Probing for an available port...\n");
         // default
         assign_port("0", server_port);
@@ -69,6 +103,9 @@ int main(int argc, char const* argv[])
         break;
     }
     }
+
+    bool erase, reset;
+    tie(erase, reset) = check_db_status();
 
     ctpl::thread_pool thread_pool(LIMIT);
 
@@ -92,7 +129,9 @@ int main(int argc, char const* argv[])
     }
 
     // server database
-    db = new Database(true, true);
+    db = new Database(erase, reset);
+
+    if (!verbose) printf("Silent mode is on.\n");
 
     while (true) {
         // Grab a connection from the queue
@@ -263,7 +302,7 @@ void process_request(int id, Connection& conn)
     strcpy(clientip, inet_ntoa(addr.sin_addr));
     clientport = ntohs(addr.sin_port);
 
-    char display_msg[1024];
+    char display_msg[MAX_LENGTH];
 
     sprintf(display_msg, "→ Accepting new connection from:\n"
                          "  Client IP: %s\n"
@@ -271,13 +310,18 @@ void process_request(int id, Connection& conn)
         clientip, clientport);
     printf("%s\n", display_msg);
     printf("Connected clients num: %d\n", current_user);
+
+    send(connection, public_key.c_str(), public_key.size(), 0);
+
+    printf("Public key sent to client.\n");
+
     string username = "";
 
     while (true && connection && !termination_flag) {
         // Read from the connection
-        char buffer[2048];
-        int tmp_byte_read = recv(connection, buffer, sizeof(buffer), 0); // RECV_SIGNAL
-        string raw(buffer);
+        char buffer[MAX_LENGTH];
+        int tmp_byte_read = recv_P3(connection, buffer, MAX_LENGTH, private_key, _PRIVATE, verbose);
+        string raw(reinterpret_cast<char*>(buffer));
 
         if (tmp_byte_read == -1 || raw.empty()) {
             int status = db->user_logout(clientip, clientport);
@@ -321,7 +365,8 @@ void process_request(int id, Connection& conn)
             else
                 response += to_string(status) + " " + "FAIL\n";
 
-            send(connection, response.c_str(), response.size(), 0);
+            // send(connection, response.c_str(), response.size(), 0);
+            send_P3(connection, response.c_str(), response.size(), private_key, _PRIVATE, verbose);
             break;
         }
         case LOGIN: {
@@ -336,12 +381,14 @@ void process_request(int id, Connection& conn)
                 client_fds.push_back(make_pair(username, &connection));
                 auto user = db->user_info(username);
                 response = to_string(user.balance) + "\n";
-                response += public_key + "\n";
+                // response += public_key + "\n";
                 response += to_string(db->user_num()) + "\n";
                 printf("Online num: %d\n", db->user_num());
                 response += db->user_list_info();
             }
-            send(connection, response.c_str(), response.size(), 0);
+            // printf("%s\n", response.c_str());
+            // send(connection, response.c_str(), response.size(), 0);
+            send_P3(connection, response.c_str(), response.size(), private_key, _PRIVATE, verbose);
             break;
         }
         case LIST: {
@@ -351,11 +398,12 @@ void process_request(int id, Connection& conn)
             } else {
                 auto user = db->user_info(username);
                 response = to_string(user.balance) + "\n";
-                response += public_key + "\n";
+                // response += public_key + "\n";
                 response += to_string(db->user_num()) + "\n";
                 response += db->user_list_info();
             }
-            send(connection, response.c_str(), response.size(), 0);
+            // send(connection, response.c_str(), response.size(), 0);
+            send_P3(connection, response.c_str(), response.size(), private_key, _PRIVATE, verbose);
             break;
         }
         case TRANSACTION: {
@@ -366,6 +414,8 @@ void process_request(int id, Connection& conn)
                 response = "transfer FAIL\n";
             else if (status == TRANSFER_SENDER_BANKRUPT)
                 response = "transfer FAIL due to bankruptcy\n";
+            else if (status == TRANSFER_SELF_FAIL)
+                response = "transfer FAIL; can't transfer to yourself\n";
 
             // to the sender
             auto sender = db->user_info(processed_cmd[0]);
@@ -377,13 +427,15 @@ void process_request(int id, Connection& conn)
                     break;
                 }
             }
-            send(*sender_fd, response.c_str(), response.size(), 0);
+            // send(*sender_fd, response.c_str(), response.size(), 0);
+            send_P3(*sender_fd, response.c_str(), response.size(), private_key, _PRIVATE, verbose);
             break;
         }
         case EXIT: {
             int status = db->user_logout(clientip, clientport);
             response += "Bye\n";
-            send(connection, response.c_str(), response.size(), 0);
+            // send(connection, response.c_str(), response.size(), 0);
+            send_P3(connection, response.c_str(), response.size(), private_key, _PRIVATE, verbose);
             int online_num = db->user_num();
             for (int i = 0; i < client_fds.size(); i++) {
                 if (client_fds[i].first == username) {
@@ -393,20 +445,23 @@ void process_request(int id, Connection& conn)
             }
 
             // close the connection with this user
-            printf("Online num:%d\n", online_num);
+            printf("Online num: %d\n", online_num);
             // close(connection);
             // shutdown(connection, SHUT_RDWR);
             break;
         }
         default: {
             response = to_string(QUERY_ERROR);
-            send(connection, response.c_str(), response.size(), 0);
+
+            // send(connection, response.c_str(), response.size(), 0);
+            send_P3(connection, response.c_str(), response.size(), private_key, _PRIVATE, verbose);
             break;
         }
         }
 
-        if (cmd_type == EXIT)
+        if (cmd_type == EXIT) {
             break;
+        }
     }
     printf("Drop connection with %s@%d\n", clientip, clientport);
     printf("Connected clients num: %d\n", --current_user);
@@ -414,4 +469,41 @@ void process_request(int id, Connection& conn)
     close(connection);
     shutdown(connection, SHUT_RDWR);
     return;
+}
+
+tuple<bool, bool> check_db_status()
+{
+    bool erase = true;
+    char db_alive;
+    while (true) {
+        printf("Keep database alive after server termination? [Y/n] ");
+        do {
+            scanf("%c", &db_alive);
+        } while (db_alive == '\n');
+
+        if (db_alive == 'Y' || db_alive == 'y') {
+            erase = false;
+            break;
+        } else if (db_alive == 'n' || db_alive == 'N') {
+            erase = true;
+            break;
+        }
+    }
+    bool reset = true;
+    char db_reset;
+    while (true) {
+        printf("Reset database during initialization? [Y/n] ");
+        do {
+            scanf("%c", &db_reset);
+        } while (db_reset == '\n');
+
+        if (db_reset == 'Y' || db_reset == 'y') {
+            reset = true;
+            break;
+        } else if (db_reset == 'n' || db_reset == 'N') {
+            reset = false;
+            break;
+        }
+    }
+    return make_tuple(erase, reset);
 }

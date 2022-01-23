@@ -22,18 +22,22 @@ CC=gcc
 CLIB=-std=c++17
 
 INCLUDE = -I$(WORKDIR)/include/\
-                    -I$(WORKDIR)/src/
+                    -I$(WORKDIR)/src/					
+
+OPENSSLCPPFLAGS = -I/usr/local/opt/openssl@1.1/include
+
+LDFLAGS = -L/usr/local/opt/openssl@1.1/lib
 
 SRCDIR = src
 
 UNAME := $(shell uname)
 
 ifeq ($(UNAME), Darwin)
-CFLAGS=-lstdc++ -lpthread -lsqlite3 $(INCLUDE)
+CFLAGS=-lstdc++ -lpthread -lsqlite3 $(LDFLAGS) $(INCLUDE) $(OPENSSLCPPFLAGS) -lssl -lcrypto 
 endif
 
 ifeq ($(UNAME), Linux)
-CFLAGS=-lstdc++ -pthread -lrt -lpthread -lsqlite3 $(INCLUDE)
+CFLAGS=-lstdc++ -pthread -lrt -lpthread -lsqlite3 $(INCLUDE) -lssl -lcrypto
 endif
 
 
@@ -42,24 +46,33 @@ endif
 	
 all: client server
 	@$(ECHO) All done
-	@echo 🍺 Type \"./server \<PORT\> \<LIMIT\>\" to start the server;
-	@echo 🍺 Type \"./client \<SERVER_IP\> \<SERVER_PORT\>\" to start the client.
+	@echo 🍺 Type \"./server \<PORT\> \<LIMIT\> \[-s\]\" to start the server;
+	@echo 🍺 Type \"./client \<SERVER_IP\> \<SERVER_PORT\> \[-v\]\" to start the client.
 	@echo 💬 \(Or type \"make clean\" to clean the binaries\)
 
 
 # FIXME - bad name here
-client: src/client.cpp
+client: src/client.cpp include/util.hpp
 	@$(ECHO) Compiling $@
 	@$(CC) $(CLIB) $(WORKDIR)/$(SRCDIR)/client.cpp $(CFLAGS) -o client
 
 # FIXME - bad name here
-server: src/server.cpp src/Database.cpp
+server: src/server.cpp src/Database.cpp include/util.hpp
 	@$(ECHO) Compiling $@
 	@$(CC) $(CLIB) $(WORKDIR)/$(SRCDIR)/server.cpp $(WORKDIR)/$(SRCDIR)/Database.cpp $(CFLAGS) -o server
 
+debug: src/client.cpp src/server.cpp src/Database.cpp include/util.hpp
+	@$(ECHO) Compiling $@
+	@$(CC) $(CLIB) -DDEBUG $(WORKDIR)/$(SRCDIR)/client.cpp $(CFLAGS) -o client_d
+	@$(CC) $(CLIB) -DDEBUG $(WORKDIR)/$(SRCDIR)/server.cpp $(WORKDIR)/$(SRCDIR)/Database.cpp $(CFLAGS) -o server_d
+	@echo 🍺 Type \"./server_d \<PORT\> \<LIMIT\> \[-s\]\" to start the server;
+	@echo 🍺 Type \"./client_d \<SERVER_IP\> \<SERVER_PORT\> \[-v\]\" to start the client.
+	@echo 💬 \(Or type \"make clean\" to clean the binaries\)
 
-testing: test/db-test.cpp
-	@echo $@
+
+simple: test/simple.cpp
+	@$(CC) $(CLIB) test/simple.cpp $(CFLAGS) -o simple
+
 
 clean: 
 	@rm -f client server
