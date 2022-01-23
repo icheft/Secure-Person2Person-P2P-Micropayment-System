@@ -69,11 +69,9 @@ debug: src/client.cpp src/server.cpp src/Database.cpp include/util.hpp
 	@echo 🍺 Type \"./client_d \<SERVER_IP\> \<SERVER_PORT\> \[-v\]\" to start the client.
 	@echo 💬 \(Or type \"make clean\" to clean the binaries\)
 
-testing: test/write_crt.cpp
-	@$(CC) $(CLIB) test/write_crt.cpp $(CFLAGS) -o wc
 
-simple: src/simple.cpp
-	@$(CC) $(CLIB) src/simple.cpp $(CFLAGS) -o simple
+simple: test/simple.cpp
+	@$(CC) $(CLIB) test/simple.cpp $(CFLAGS) -o simple
 
 
 clean: 
