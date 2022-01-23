@@ -91,11 +91,11 @@ std::string readKey(std::string path)
 int main()
 {
 
-    char plainText[2048 / 8] = "an#2000#brian"; // key length : 2048
+    char plainText[2048 / 8] = "an#200#brian"; // key length : 2048
     // openssl x509 -pubkey -noout -in client.crt  > pubkey.pem
-    std::string publicKey = readKey("certs/pubkey.pem");
+    std::string publicKey = readKey("certs/9zii1_client.pem");
     // printf("%s\n", publicKey.c_str());
-    std::string privateKey = readKey("certs/client.key");
+    std::string privateKey = readKey("certs/9zii1_client.key");
     // printf("%s\n", privateKey.c_str());
 
     unsigned char encrypted[4098] = {};

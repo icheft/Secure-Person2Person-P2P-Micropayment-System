@@ -5,7 +5,13 @@ using namespace std;
 
 #define CMD_LENGTH 20
 #define FAIL -1
-#define MAX_LENGTH 4096
+#define MAX_LENGTH 2048
+
+#ifdef DEBUG
+#define UID_TEST 8
+#else
+#define UID_TEST -1
+#endif
 
 // global variables
 const char DEFAULT_IP_ADDRESS[20] = "10.211.55.4"; // Parallels "10.211.55.4"
@@ -32,13 +38,14 @@ string cert_path = "certs";
 // string cert_dir = "certs/";
 string target = "client";
 string pem_name = "client";
-string uid;
+string uid = "";
 
-// string key_path = cert_path + "/" + target + ".key";
 string key_path = ""; // cert_path + "/" + target + ".key";
-// string crt_path = cert_path + "/" + target + ".crt";
 string crt_path = ""; // cert_path + "/" + target + ".crt";
 string pubkey_path = ""; // cert_path + "/" + target + ".crt";
+
+string private_key = "";
+string public_key = "";
 
 // exceptions
 class not_found_error : public exception
@@ -132,9 +139,9 @@ int main(int argc, char const* argv[])
     char buffer[MAX_LENGTH];
     recv(server_fd, buffer, sizeof(buffer), 0); // RECV_SIGNAL
     server_pubkey = (string)buffer;
-    printf("Server Public Key:\n%s\n", server_pubkey.c_str());
     // print the server socket addr and port
     get_info(&address);
+    printf("Server Public Key:\n%s\n", server_pubkey.c_str());
     if (verbose) printf("Verbose mode is on.\n");
     // wait for user inputs
     int opt;
@@ -188,6 +195,15 @@ int main(int argc, char const* argv[])
 
             if (!client_server_open && status != 220) {
                 // if not equal to AUTH_FAIL
+                if (UID_TEST < 0)
+                    uid = create_key_and_certificate(cert_path.c_str(), target.c_str(), pem_name.c_str());
+                else
+                    uid = to_string(UID_TEST);
+                key_path = cert_path + "/" + uid + "_" + target + ".key";
+                crt_path = cert_path + "/" + uid + "_" + target + ".crt";
+                pubkey_path = cert_path + "/" + uid + "_" + target + ".pem";
+                public_key = readKey(pubkey_path);
+                private_key = readKey(key_path);
                 // create a client server for peer transaction
                 struct sockaddr_in cserver_address;
                 int k = 0;
@@ -329,11 +345,19 @@ char* p2p_transaction(int socket_fd)
     }
     char buffer[MAX_LENGTH] = { 0 };
     strcpy(buffer, transact_msg);
-    // sending
-    bytes_written += send(peer_sock, buffer, sizeof(buffer), 0);
+    // get public key first
+    char tmp[MAX_LENGTH];
+    recv(peer_sock, tmp, sizeof(tmp), 0); // RECV_SIGNAL
+    string peer_pubkey = (string)tmp;
+    printf("\nPeer Public Key:\n%s\n", peer_pubkey.c_str());
+    // bytes_written += send(peer_sock, public_key.c_str(), sizeof(buffer), 0);
+    bytes_written += send_P3(peer_sock, buffer, sizeof(buffer), peer_pubkey, _PUBLIC, verbose);
     char tmp_msg_from_peer[MAX_LENGTH] = { 0 };
     close(peer_sock);
-    bytes_read += recv(server_fd, rcv_msg, MAX_LENGTH, 0);
+    // bytes_read += recv(server_fd, rcv_msg, MAX_LENGTH, 0);
+
+    int rcv_byte = recv_P3(server_fd, rcv_msg, MAX_LENGTH, server_pubkey, _PUBLIC, verbose);
+    bytes_read += rcv_byte;
 
     return rcv_msg; // transfer OK
 }
@@ -369,51 +393,32 @@ void* receive_thread(void* socket_fd)
 // Receiving messages on our port
 int receiving(int socket_fd)
 {
-    struct sockaddr_in address;
-    char buffer[2000] = { 0 };
-    int addrlen = sizeof(address);
-    fd_set current_sockets, ready_sockets;
+    struct sockaddr_in sockaddr;
+    char buffer[MAX_LENGTH] = { 0 };
+    int addrlen = sizeof(sockaddr);
+    // auto num_of_threads = thread::hardware_concurrency();
+    // if (num_of_threads == 0) {
+    //     num_of_threads = 1;
+    // }
 
-    // Initialize my current set
-    FD_ZERO(&current_sockets);
-    FD_SET(socket_fd, &current_sockets);
-    int k = 0;
-    while (1) {
-        k++;
-        ready_sockets = current_sockets;
-
-        if (select(FD_SETSIZE, &ready_sockets, NULL, NULL, NULL) < 0) {
-            perror("Error");
-            exit(EXIT_FAILURE);
+    while (true) {
+        int connection = accept(socket_fd, (struct sockaddr*)&sockaddr, (socklen_t*)&addrlen);
+        if (connection == FAIL) {
+            printf("\nConnection Failed \n");
+            return -1;
         }
+        send(connection, public_key.c_str(), public_key.size(), 0);
+        int byte_read = recv_P3(connection, buffer, MAX_LENGTH, private_key, _PRIVATE, verbose);
+        bytes_read += byte_read;
+        vector<string> transfer_info = split(buffer, "#");
 
-        for (int i = 0; i < FD_SETSIZE; i++) {
-            if (FD_ISSET(i, &ready_sockets)) {
+        // send(server_fd, buffer, tmp_byte_read, 0);
+        // bytes_read += tmp_byte_read;
 
-                if (i == socket_fd) {
-                    int client_socket;
+        int snd_byte = send_P3(server_fd, buffer, sizeof(buffer), server_pubkey, _PUBLIC, verbose);
+        bytes_written += snd_byte;
 
-                    if ((client_socket = accept(socket_fd, (struct sockaddr*)&address,
-                             (socklen_t*)&addrlen))
-                        < 0) {
-                        perror("accept");
-                        exit(EXIT_FAILURE);
-                    }
-                    FD_SET(client_socket, &current_sockets);
-                } else {
-                    // receiving
-                    int tmp_byte_read = recv(i, buffer, sizeof(buffer), 0);
-                    vector<string> transfer_info = split(buffer, "#");
-                    send(server_fd, buffer, tmp_byte_read, 0);
-                    bytes_read += tmp_byte_read;
-                    printf("\n[Notification] %s just sent you $%s!\n", transfer_info[0].c_str(), transfer_info[1].c_str());
-                    FD_CLR(i, &current_sockets);
-                }
-            }
-        }
-
-        if (k == (FD_SETSIZE * 2))
-            break;
+        printf("\n[Notification] %s just sent you $%s!\n", transfer_info[0].c_str(), transfer_info[1].c_str());
     }
     return -1;
 }
@@ -477,10 +482,12 @@ char* register_user(int socket_fd)
     if (!client_server_open) {
         strcpy(name, tmp_name);
     }
-    int snd_byte = send(socket_fd, snd_msg, sizeof(snd_msg), 0);
+    // int snd_byte = send(socket_fd, snd_msg, sizeof(snd_msg), 0);
+    int snd_byte = send_P3(socket_fd, snd_msg, sizeof(snd_msg), server_pubkey, _PUBLIC, verbose);
     bytes_written += snd_byte;
 
-    int rcv_byte = recv(socket_fd, rcv_msg, MAX_LENGTH, 0);
+    // int rcv_byte = recv(socket_fd, rcv_msg, MAX_LENGTH, 0);
+    int rcv_byte = recv_P3(socket_fd, rcv_msg, MAX_LENGTH, server_pubkey, _PUBLIC, verbose);
     bytes_read += rcv_byte;
 
     return rcv_msg;
@@ -573,11 +580,12 @@ char* login_server(int socket_fd, int* login_port)
     }
 
     strcat(snd_msg, to_string(*login_port).c_str());
-    // send message to server
-    int snd_byte = send(socket_fd, snd_msg, sizeof(snd_msg), 0);
+    // int snd_byte = send(socket_fd, snd_msg, sizeof(snd_msg), 0);
+    int snd_byte = send_P3(socket_fd, snd_msg, sizeof(snd_msg), server_pubkey, _PUBLIC, verbose);
     bytes_written += snd_byte;
 
-    int rcv_byte = recv(socket_fd, rcv_msg, MAX_LENGTH, 0);
+    // int rcv_byte = recv(socket_fd, rcv_msg, MAX_LENGTH, 0);
+    int rcv_byte = recv_P3(socket_fd, rcv_msg, MAX_LENGTH, server_pubkey, _PUBLIC, verbose);
     bytes_read += rcv_byte;
     return rcv_msg;
 }
@@ -586,10 +594,12 @@ char* request_list(int socket_fd)
 {
     const char* snd_msg = "List";
     char* rcv_msg = new char[MAX_LENGTH];
-    int snd_byte = send(socket_fd, snd_msg, sizeof(snd_msg), 0);
+    // int snd_byte = send(socket_fd, snd_msg, sizeof(snd_msg), 0);
+    int snd_byte = send_P3(socket_fd, snd_msg, sizeof(snd_msg), server_pubkey, _PUBLIC, verbose);
     bytes_written += snd_byte;
 
-    int rcv_byte = recv(socket_fd, rcv_msg, MAX_LENGTH, 0);
+    // int rcv_byte = recv(socket_fd, rcv_msg, MAX_LENGTH, 0);
+    int rcv_byte = recv_P3(socket_fd, rcv_msg, MAX_LENGTH, server_pubkey, _PUBLIC, verbose);
     bytes_read += rcv_byte;
     // parse_info
     // FIXME: way to identify error --> be aware when self-implemtating the server
@@ -608,10 +618,21 @@ char* exit_server(int socket_fd)
         printf("See you next time!\n");
     const char* exit_msg = "Exit";
     char* rcv_msg = new char[MAX_LENGTH];
-    send(socket_fd, exit_msg, sizeof(exit_msg), 0);
-    recv(socket_fd, rcv_msg, MAX_LENGTH, 0);
+    // send(socket_fd, exit_msg, sizeof(exit_msg), 0);
+    // recv(socket_fd, rcv_msg, MAX_LENGTH, 0);
+
+    // int snd_byte = send(socket_fd, snd_msg, sizeof(snd_msg), 0);
+    int snd_byte = send_P3(socket_fd, exit_msg, sizeof(exit_msg), server_pubkey, _PUBLIC, verbose);
+    bytes_written += snd_byte;
+
+    // int rcv_byte = recv(socket_fd, rcv_msg, MAX_LENGTH, 0);
+    int rcv_byte = recv_P3(socket_fd, rcv_msg, MAX_LENGTH, server_pubkey, _PUBLIC, verbose);
+    bytes_read += rcv_byte;
     // close(socket_fd);
     close(socket_fd);
+
+    if (UID_TEST < 0 && client_server_open)
+        delete_key_and_certificate(uid, cert_path.c_str(), target.c_str(), pem_name.c_str());
     // // cout << rcv_msg << endl;
     // if (string(rcv_msg) == "Bye") {
     // } else {

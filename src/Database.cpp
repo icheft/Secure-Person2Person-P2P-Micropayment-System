@@ -171,8 +171,10 @@ int Database::user_transaction(string snd, string rcv, double pay)
 {
     auto storage = this->connect();
     storage.sync_schema();
-    if (pay <= 0) {
-        return TRANSFER_FAIL;
+    if (pay <= 0 || (snd == rcv)) {
+        if (snd == rcv) return TRANSFER_SELF_FAIL;
+        else
+            return TRANSFER_FAIL;
     }
     auto sender_result = storage.get_all<Client>(where(c(&Client::username) == snd and c(&Client::online_status) == 1));
     auto receiver_result = storage.get_all<Client>(where(c(&Client::username) == rcv and c(&Client::online_status) == 1));

@@ -1,48 +1,20 @@
-<h1 align="center">A Secure Person2Person (P2P) Micropayment System w/ OpenSSL</h1>
+---
+title: "A Secure Person2Person (P2P) Micropayment System w/ OpenSSL User Manual"
+author: [Brian Li-Hsuan Chen (B07705031)]
+date: \today
+subject: "IM 3010"
+keywords: [IM3010, SocketProgramming]
+subtitle: "IM 3010 Programming Assignment: Phase 03 Implementation"
+titlepage: true
+titlepage-rule-color: 198964
+titlepage-background: docs/background5.pdf
+CJKmainfont: "Source Han Sans TC"
+toc: true
+---
 
-<h3 align="center">IM 3010 Programming Assignment: Phase 03 Implementation - Simplified Version 💩</h3>
+<!-- 上傳繳交的部份包含以下四項；1.2.3.Binary 執行檔（已Compile 及Linking 完成並可執行的Client 端程式）。4.用以編譯程式之Makefile。請將上述四項檔案壓縮成：學號_part1.tar.gz (e.g. b027050xx_part1.tar.gz)，上傳至NTU COOL 平台課程作業區 -->
 
-
-+ [💩](#)
-+ [Introduction](#introduction)
-+ [Environment](#environment)
-    + [macOS](#macos)
-    + [Ubuntu](#ubuntu)
-    + [Certificates and Private Keys](#certificates-and-private-keys)
-+ [Usage](#usage)
-    + [Running Server Program](#running-server-program)
-    + [Working Server](#working-server)
-        + [When Clients Connect to Server](#when-clients-connect-to-server)
-        + [User Registration](#user-registration)
-        + [User Login](#user-login)
-        + [Information Listing](#information-listing)
-        + [P2P Transaction](#p2p-transaction)
-        + [User Logout](#user-logout)
-        + [When Clients Exceed Thread Limit](#when-clients-exceed-thread-limit)
-    + [Terminating Server Program](#terminating-server-program)
-    + [Running Client Program](#running-client-program)
-    + [Runtime Key Generation](#runtime-key-generation)
-    + [Exiting Client Program](#exiting-client-program)
-+ [How to Compile](#how-to-compile)
-    + [Compiling Client and Server](#compiling-client-and-server)
-        + [Debugging Mode](#debugging-mode)
-+ [Mechanism for Secure Transmission](#mechanism-for-secure-transmission)
-+ [References](#references)
-    + [OpenSSL](#openssl)
-    + [Server-side Implementation](#server-side-implementation)
-    + [Client-side Implementation](#client-side-implementation)
-    + [User Manual](#user-manual)
-+ [Development](#development)
-    + [Progress](#progress)
-    + [Add Certificates](#add-certificates)
-    + [**Submission**](#submission)
-    + [`Database` Usage](#database-usage)
-    + [Trouble-shooting](#trouble-shooting)
-        + [OpenSSL Environment Settings](#openssl-environment-settings)
-        + [Keys](#keys)
-        + [Client](#client)
-        + [Server](#server)
-    + [ToDos and References](#todos-and-references)
+<!-- DONE -->
 
 ## Introduction
 
@@ -450,121 +422,3 @@ In general, the entire system is designed in the same fashion.
 (from phase01)
 
 + [Eisvogel](https://github.com/Wandmalfarbe/pandoc-latex-template) at <https://github.com/Wandmalfarbe/pandoc-latex-template>
-
-
-## Development
-
-### Progress
-
-+ public key will be sent to client when a client connect to a server
-+ client will use the public key to encrypt the message and send it back to the server
-+ server will use `private_decrypt` to decrypt the message with its private key
-+ server will encrypt the message with its private key
-+ server will send the message to the client, the client will have to use its public key to decrypt the message
-+ transaction between peer A and peer B:
-    + if A wants to send a message to B
-    + A will encrypt the message with B's public key 
-    + A will send the message to B
-    + B will decrypt the message with its private key
-    + B will send the message to server, using server's public key to encrypt the message
-
-### Add Certificates
-
-```sh
-sh create_ca.sh cert server/client <cert_key_name>
-sh create_ca.sh CA
-```
-
-### **Submission**
-
-```sh
-sh sub.sh <SID>
-```
-
-### `Database` Usage
-
-```cpp
-Database* db = new Database(true, true);
-cout << db->user_register("brian", "127.0.0.1") << endl;
-cout << db->user_login("brian", "127.0.0.1", 65312, 8888) << endl;
-cout << db->user_logout("127.0.0.1", 65313) << endl;
-cout << db->user_transaction("brian", "michael", 2000) << endl;
-
-auto online_users = db->list(); // online is true by default
-
-cout << "Online num: " << online_users.size() << endl;
-for (auto& user : online_users) {
-    cout << user.username << "#" << user.ip << "#" << user.private_port << endl;
-}
-cout << "\n";
-```
-
-```cpp
-#define REGISTER_OK 100
-#define REGISTER_FAIL 210
-
-#define LOGIN_SUCCESS 110
-#define LOGIN_AUTH_FAIL 220
-#define LOGIN_EXIST 230
-#define USER_NOT_LOGIN 240
-
-#define LOGOUT_SUCCESS 120
-#define LOGOUT_FAIL 250
-
-#define TRANSFER_OK 130
-#define TRANSFER_FAIL 260
-#define TRANSFER_SENDER_BANKRUPT 270
-
-#define QUERY_OK 300
-#define QUERY_ERROR 400
-
-```
-
-
-### Trouble-shooting
-
-#### OpenSSL Environment Settings
-
-+ macOS
-
-    ```sh
-    brew install openssl
-    brew link openssl # optional
-    ```
-
-    ```sh
-    If you need to have openssl@3 first in your PATH, run:
-        echo 'export PATH="/usr/local/opt/openssl@3/bin:$PATH"' >> ~/.zshrc
-
-    For compilers to find openssl@3 you may need to set:
-        export LDFLAGS="-L/usr/local/opt/openssl@3/lib"
-        export CPPFLAGS="-I/usr/local/opt/openssl@3/include"
-    ```
-+ Linux
-
-    ```sh
-    sudo apt-get install openssl
-    sudo apt-get install libssl-dev
-    ```
-
-#### Keys
-
-```sh
-openssl req -x509 -sha256 -nodes -days 365 -newkey rsa:2048 -keyout a.key -out a.crt
-# openssl req -x509 -nodes -days 365 -newkey rsa:1024 -keyout mycert.pem -out mycert.pem
-```
-
-#### Client 
-
-
-#### Server
-
-
-### ToDos and References
-
-+ OpenSSL
-    + [SSL socket 小攻略](https://hackmd.io/@J-How/B1vC_LmAD#FAQ)
-    + [OpenSSL 範例](http://neokentblog.blogspot.com/2012/10/openssl-ssl.html)
-    + [ssl server client programming using openssl in c](https://aticleworld.com/ssl-server-client-using-openssl-in-c/)
-    + [SSL 通道小攻略](https://hackmd.io/@G9IwPB5oTmOK_qFXzKABGg/rJkvqdgJ_#SSL通道小攻略)
-    + [Creating Keys](https://stackoverflow.com/questions/10175812/how-to-generate-a-self-signed-ssl-certificate-using-openssl)

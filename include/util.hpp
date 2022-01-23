@@ -17,6 +17,9 @@
 #include <string>
 #include <vector>
 
+#define _PUBLIC 0
+#define _PRIVATE 1
+
 using namespace std;
 
 string random_string(std::string::size_type length)
@@ -267,4 +270,83 @@ int SSL_write_E(SSL* ssl, string key_path, string response, int MAX_LENGTH, bool
     int tmp_byte_write = SSL_write(ssl, ciphertext, RSA_size(p_key) + 1);
 
     return tmp_byte_write;
+}
+
+int recv_P3(int fd, char* plaintext, int size, string key, int option, bool verbose = false)
+{
+    // phase 3 send
+    char encrypted[4096];
+    unsigned char decrypted[4096] = {};
+
+    int rcv_byte = recv(fd, encrypted, sizeof(encrypted), 0);
+
+    // int snd_byte = recv(fd, encrypted, sizeof(encrypted), 0);
+
+    if (verbose)
+        printf("\n[System Info] Encrypted message received - <%s>\n", encrypted);
+
+    switch (option) {
+    case _PUBLIC: {
+        int encrypted_length = public_decrypt((unsigned char*)encrypted, 256, (unsigned char*)key.c_str(), decrypted);
+        if (encrypted_length == -1) {
+            string display_msg = "Public Decrypt failed";
+            printLastError((char*)display_msg.c_str());
+            exit(0);
+        }
+        break;
+    }
+    case _PRIVATE: {
+        int encrypted_length = private_decrypt((unsigned char*)encrypted, 256, (unsigned char*)key.c_str(), decrypted);
+        if (encrypted_length == -1) {
+            string display_msg = "Private Decrypt failed";
+            printLastError((char*)display_msg.c_str());
+            exit(0);
+        }
+        break;
+    }
+    default: {
+        break;
+    }
+    }
+    memcpy(plaintext, (char*)decrypted, strlen((char*)decrypted) + 1);
+
+    // verbose option is kept for future implementation
+    return rcv_byte;
+}
+
+int send_P3(int fd, string plaintext, int size, string key, int option, bool verbose = false)
+{
+    // phase 3 send
+    unsigned char encrypted[4096] = {};
+
+    switch (option) {
+    case _PUBLIC: {
+        int encrypted_length = public_encrypt((unsigned char*)plaintext.c_str(), plaintext.size(), (unsigned char*)key.c_str(), encrypted);
+        if (encrypted_length == -1) {
+            string display_msg = "Public Encrypt failed";
+            printLastError((char*)display_msg.c_str());
+            exit(0);
+        }
+        break;
+    }
+    case _PRIVATE: {
+        int encrypted_length = private_encrypt((unsigned char*)plaintext.c_str(), plaintext.size(), (unsigned char*)key.c_str(), encrypted);
+        if (encrypted_length == -1) {
+            string display_msg = "Private Encrypt failed";
+            printLastError((char*)display_msg.c_str());
+            exit(0);
+        }
+        break;
+    }
+    default: {
+        break;
+    }
+    }
+
+    int snd_byte = send(fd, encrypted, sizeof(encrypted), 0);
+
+    if (verbose)
+        printf("\n[System Info] Encrypted message sent - <%s>\n", encrypted);
+    // verbose option is kept for future implementation
+    return snd_byte;
 }

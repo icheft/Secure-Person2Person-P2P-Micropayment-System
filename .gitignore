@@ -30,6 +30,8 @@ certs/*.key
 certs/*.crt
 certs/*.pem
 
+simple
+
 # docs/img/2021-12-20*
 
 
