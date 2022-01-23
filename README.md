@@ -4,6 +4,8 @@
 
 
 + [Introduction](#introduction)
+    + [Phases](#phases)
+    + [How to Get Started in 5 Minutes](#how-to-get-started-in-5-minutes)
 + [Environment](#environment)
     + [macOS](#macos)
     + [Ubuntu](#ubuntu)
@@ -11,7 +13,7 @@
 + [Usage](#usage)
 + [How to Compile](#how-to-compile)
     + [Compiling Client and Server](#compiling-client-and-server)
-        + [Debugging Mode](#debugging-mode)
+    + [Debugging Mode](#debugging-mode)
 + [Mechanism for Secure Transmission](#mechanism-for-secure-transmission)
 + [References](#references)
     + [OpenSSL](#openssl)
@@ -21,22 +23,44 @@
 
 ## Introduction
 
-In **Phase 03**, we are asked to implement a secure transmission for both server-side and client-side programs in the Micropayment System. 
+This is a undergrad project for IM 3010 Computer Networks Course in NTU. The project is to implement a simplified version of the P2P micropayment system. 
 
-There are five functions in the system, i.e. *registering*, *login*, *listing*, *transacting*, and *exiting*. Asymmetric encryption is asked to be used in *transaction* (*transacting*), implemented by OpenSSL with public key and private key encryption and decryption. 
+The entire project is separated into three parts (phrases):
 
-The implementation in this repository has adopted asymmetric encryption for every transmission between client and server. Peer-to-peer communication is also implemented using asymmetric encryption. Client program will generate a pair of certificate and private key during runtime.
+1. In **Phase 01**, we are asked to implement a client-side function for the Person-to-Person Transaction.
+2. In **Phase 02**, we are asked to implement a server-side program to handle requests sent by clients in the Micropayment System.
+3. In **Phase 03**, we are asked to implement a secure transmission for both server-side and client-side programs in the Micropayment System. 
 
-Simply start the server by running `./server <SERVER_PORT> <CONCURRENT_USER_LIMIT> [--silent]`. `-s` or `--silent` is passed in to suppress the output of the encrypted message in server. 
+### Phases
 
-Simply start the client program by running `./client <SERVER_IP> <SERVER_PORT> [--verbose]`. `-v` or `--verbose` is passed in to print the encrypted message in client. 
+You can visit every phase of the project via different branches and releases. Here is a quick run-through of the branches and releases:
 
-The user manual will cover the running environment used when developing the program, the environment that this code could be used in, the usage of server and client program, the compilation, the mechanism for secure transmission, and the references when doing this assignment.
+| Branch                                                                                                           | Release                                                                                                             | Description                                                                                                                                                                                    |
+| ---------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `main`                                                                                                           |                                                                                                                     | The main branch; you can find the finalized code here                                                                                                                                          |
+| [`phase/01`](https://github.com/icheft/Secure-Person2Person-P2P-Micropayment-System/tree/phase/01)               | [v0.0.1-beta](https://github.com/icheft/Secure-Person2Person-P2P-Micropayment-System/releases/tag/v0.0.1-beta)      | Phase/01 implementation; only client-side program was implemented                                                                                                                              |
+| [`phase/02`](https://github.com/icheft/Secure-Person2Person-P2P-Micropayment-System/tree/phase/02)               | [v0.0.2-beta](https://github.com/icheft/Secure-Person2Person-P2P-Micropayment-System/releases/tag/v0.0.2-beta)      | Phase/02 implementation; client-side program remained unchanged (probably) + server-side program was newly implemented                                                                         |
+| [`phase/03`](https://github.com/icheft/Secure-Person2Person-P2P-Micropayment-System/tree/phase/03)               | N/A                                                                                                                 | Phase/03 implementation (the one that was used to grade); using OpenSSL                                                                                                                        |
+| [`phase/03-simple`](https://github.com/icheft/Secure-Person2Person-P2P-Micropayment-System/tree/phase/03-simple) | [v0.0.3-beta](https://github.com/icheft/Secure-Person2Person-P2P-Micropayment-System/releases/tag/v0.0.3-beta)[^p3] | Phase/03 implementation (simplified version); using OpenSSL to generate certificates, public keys, and private keys + secured transmission is implemented through manual encryption-decryption |
 
+[^p3]: The documentation in this release is written using the more complicated version of the implementation ([`phase/03`](https://github.com/icheft/Secure-Person2Person-P2P-Micropayment-System/tree/phase/03)).
 
-<!-- DONE -->
+### How to Get Started in 5 Minutes
+
+There are five functions in the system, i.e. *registering*, *login*, *listing*, *transacting*, and *exiting*. Every message is sent with asymmetric encryption in the final phase. 
+
+1. Clone this repository by `git clone https://github.com/icheft/Secure-Person2Person-P2P-Micropayment-System.git && cd Secure-Person2Person-P2P-Micropayment-System`
+2. Make sure you have everything mentioned in the Environment section
+    + Run `sh create_ca.sh cert server server` if `server.crt`, `server.key`, `server.pem` do not exist in `certs/` directory.
+3. Simply start the server by running `./server <SERVER_PORT> <CONCURRENT_USER_LIMIT> [--silent]`. `-s` or `--silent` is passed in to suppress the output of the encrypted message in server. 
+4. Simply start the client program by running `./client <SERVER_IP> <SERVER_PORT> [--verbose]`. `-v` or `--verbose` is passed in to print the encrypted message in client. 
+
+*Binaries in Releases are all compiled on a Linux machine*. After checking that you have everything specified in the [Environment](#environment), you can always run `make clean && make` to compile the binaries yourself.
+
 
 ## Environment
+
+You should refer to two sections - [macOS](#macos)/[Linux (Ubuntu)](#ubuntu) and [Certificates and Private Keys](#certificates-and-private-keys).
 
 ### macOS
 
@@ -144,6 +168,7 @@ Client's certificate (and public key) and private keys will be generated in the 
 ./client <SERVER_IP> <SERVER_PORT> [--verbose]
 ```
 
+You can refer to a specific branch if you want to see the explicit elaboration on the usage of the program.
 
 
 ## How to Compile
@@ -163,7 +188,7 @@ You shall see the following output on your terminal:
 
 ![](docs/img/2022-01-18-02-36-34.png)
 
-#### Debugging Mode
+### Debugging Mode
 
 If strange behaviors occur during runtime, you can use `make debug` to examine the program(s). Usually errors (encryption fails or decryption fails) will occur at client-side. Please remember the cert ID for the failed client, and set the `UID_TEST` macro to that ID.
 
