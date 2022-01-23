@@ -26,6 +26,10 @@ docs/*-doc.pdf
 docs/*-draft.*
 archive/
 
+certs/*.key
+certs/*.crt
+certs/*.pem
+
 # docs/img/2021-12-20*
 
 

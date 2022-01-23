@@ -1,10 +1,11 @@
 #include "client.hpp"
+#include "util.hpp"
 
 using namespace std;
 
 #define CMD_LENGTH 20
 #define FAIL -1
-#define MAX_LENGTH 1024
+#define MAX_LENGTH 4096
 
 // global variables
 const char DEFAULT_IP_ADDRESS[20] = "10.211.55.4"; // Parallels "10.211.55.4"
@@ -18,9 +19,26 @@ long bytes_read = 0, bytes_written = 0;
 long acct_balance = 0;
 long online_num = 0;
 vector<vector<string>> peer_list;
-string server_public_key;
+// string server_public_key;
 bool client_server_open = false; // login = true
 int cserver_fd; // client server
+
+bool verbose = false;
+
+// ssl
+string server_pubkey = "";
+
+string cert_path = "certs";
+// string cert_dir = "certs/";
+string target = "client";
+string pem_name = "client";
+string uid;
+
+// string key_path = cert_path + "/" + target + ".key";
+string key_path = ""; // cert_path + "/" + target + ".key";
+// string crt_path = cert_path + "/" + target + ".crt";
+string crt_path = ""; // cert_path + "/" + target + ".crt";
+string pubkey_path = ""; // cert_path + "/" + target + ".crt";
 
 // exceptions
 class not_found_error : public exception
@@ -44,10 +62,29 @@ int main(int argc, char const* argv[])
     }
 
     // initialization
+    bool uid_initialized = false;
     switch (argc) {
     case 3: {
         strcpy(SERVER_IP_ADDRESS, argv[1]);
         SERVER_PORT = atoi(argv[2]);
+        break;
+    }
+    case 4: {
+        if (strcmp(argv[3], "-v") == 0 || strcmp(argv[3], "--verbose") == 0) {
+            verbose = true;
+            strcpy(SERVER_IP_ADDRESS, argv[1]);
+            SERVER_PORT = atoi(argv[2]);
+        } else {
+            // using default
+            printf(
+                "%s\n"
+                "%s\n"
+                "%s\n",
+                notice, man, default_program_msg);
+            // default
+            SERVER_PORT = DEFAULT_PORT;
+            strcpy(SERVER_IP_ADDRESS, DEFAULT_IP_ADDRESS);
+        }
         break;
     }
     default: {
@@ -91,10 +128,14 @@ int main(int argc, char const* argv[])
         perror("Connection error");
         exit(EXIT_FAILURE);
     }
-
+    // print server public key
+    char buffer[MAX_LENGTH];
+    recv(server_fd, buffer, sizeof(buffer), 0); // RECV_SIGNAL
+    server_pubkey = (string)buffer;
+    printf("Server Public Key:\n%s\n", server_pubkey.c_str());
     // print the server socket addr and port
     get_info(&address);
-
+    if (verbose) printf("Verbose mode is on.\n");
     // wait for user inputs
     int opt;
     do {
@@ -117,6 +158,7 @@ int main(int argc, char const* argv[])
         // end option
 
         char* rcv_msg = new char[MAX_LENGTH];
+        memset(rcv_msg, 0, MAX_LENGTH);
 
         switch (opt) {
         case REGISTER: {
@@ -136,8 +178,8 @@ int main(int argc, char const* argv[])
             // listen to other users (always listening)
             vector<string> res = split(rcv_msg, "\n");
             int status = 100; // 100 OK
-            if (res.size() <= 3) {
-                // // sth may happen
+            if (res.size() <= 2) {
+                // sth may happen
                 // if (res.size() <= 2)
                 //     status = stoi(res[0]);
                 printf("\n%s\n", rcv_msg);
@@ -385,13 +427,22 @@ void get_info(struct sockaddr_in* address)
 
 void print_sys_info()
 {
-    printf(
-        "\n*****System Information*****\n"
-        "Username: %s\n"
-        "Account Balance: %ld\n"
-        "Server Public Key: %s\n"
-        "Online User #: %ld\n",
-        name, acct_balance, server_public_key.c_str(), online_num);
+    if (verbose)
+        printf(
+            "\n*****System Information*****\n"
+            "Username: %s\n"
+            "Account Balance: %ld\n"
+            "Server Public Key: \n%s\n"
+            "Online User #: %ld\n",
+            name, acct_balance, server_pubkey.c_str(), online_num);
+    else {
+        printf(
+            "\n*****System Information*****\n"
+            "Username: %s\n"
+            "Account Balance: %ld\n"
+            "Online User #: %ld\n",
+            name, acct_balance, online_num);
+    }
 
     if (online_num > 0) {
         printf("Peer List (# - <name>#<IP>#<port>):\n");
@@ -406,10 +457,10 @@ void parse_list_info(char* msg)
 {
     vector<string> tmp = split(string(msg), "\n");
     acct_balance = stoi(tmp[0]);
-    server_public_key = tmp[1];
-    online_num = stoi(tmp[2]);
+    // server_public_key = tmp[1];
+    online_num = stoi(tmp[1]);
     peer_list = vector<vector<string>>();
-    for (int i = 3; i < 3 + online_num; i++) {
+    for (int i = 2; i < 2 + online_num; i++) {
         peer_list.push_back(split(tmp[i], "#"));
     }
 }
@@ -426,7 +477,7 @@ char* register_user(int socket_fd)
     if (!client_server_open) {
         strcpy(name, tmp_name);
     }
-    int snd_byte = send(socket_fd, snd_msg, sizeof(snd_msg) + 1, 0);
+    int snd_byte = send(socket_fd, snd_msg, sizeof(snd_msg), 0);
     bytes_written += snd_byte;
 
     int rcv_byte = recv(socket_fd, rcv_msg, MAX_LENGTH, 0);
@@ -439,6 +490,7 @@ char* login_server(int socket_fd, int* login_port)
 {
     char snd_msg[MAX_LENGTH] = {};
     char* rcv_msg = new char[MAX_LENGTH];
+    memset(rcv_msg, 0, MAX_LENGTH);
     char tmp_name[20];
     char auth;
     while (true) {
@@ -522,7 +574,7 @@ char* login_server(int socket_fd, int* login_port)
 
     strcat(snd_msg, to_string(*login_port).c_str());
     // send message to server
-    int snd_byte = send(socket_fd, snd_msg, sizeof(snd_msg) + 1, 0);
+    int snd_byte = send(socket_fd, snd_msg, sizeof(snd_msg), 0);
     bytes_written += snd_byte;
 
     int rcv_byte = recv(socket_fd, rcv_msg, MAX_LENGTH, 0);
@@ -534,7 +586,7 @@ char* request_list(int socket_fd)
 {
     const char* snd_msg = "List";
     char* rcv_msg = new char[MAX_LENGTH];
-    int snd_byte = send(socket_fd, snd_msg, sizeof(snd_msg) + 1, 0);
+    int snd_byte = send(socket_fd, snd_msg, sizeof(snd_msg), 0);
     bytes_written += snd_byte;
 
     int rcv_byte = recv(socket_fd, rcv_msg, MAX_LENGTH, 0);
@@ -556,7 +608,7 @@ char* exit_server(int socket_fd)
         printf("See you next time!\n");
     const char* exit_msg = "Exit";
     char* rcv_msg = new char[MAX_LENGTH];
-    send(socket_fd, exit_msg, sizeof(exit_msg) + 1, 0);
+    send(socket_fd, exit_msg, sizeof(exit_msg), 0);
     recv(socket_fd, rcv_msg, MAX_LENGTH, 0);
     // close(socket_fd);
     close(socket_fd);
