@@ -3,26 +3,12 @@
 <h3 align="center">IM 3010 Programming Assignment: Phase 03 Implementation - Simplified Version 💩</h3>
 
 
-+ [💩](#)
 + [Introduction](#introduction)
 + [Environment](#environment)
     + [macOS](#macos)
     + [Ubuntu](#ubuntu)
     + [Certificates and Private Keys](#certificates-and-private-keys)
 + [Usage](#usage)
-    + [Running Server Program](#running-server-program)
-    + [Working Server](#working-server)
-        + [When Clients Connect to Server](#when-clients-connect-to-server)
-        + [User Registration](#user-registration)
-        + [User Login](#user-login)
-        + [Information Listing](#information-listing)
-        + [P2P Transaction](#p2p-transaction)
-        + [User Logout](#user-logout)
-        + [When Clients Exceed Thread Limit](#when-clients-exceed-thread-limit)
-    + [Terminating Server Program](#terminating-server-program)
-    + [Running Client Program](#running-client-program)
-    + [Runtime Key Generation](#runtime-key-generation)
-    + [Exiting Client Program](#exiting-client-program)
 + [How to Compile](#how-to-compile)
     + [Compiling Client and Server](#compiling-client-and-server)
         + [Debugging Mode](#debugging-mode)
@@ -32,17 +18,6 @@
     + [Server-side Implementation](#server-side-implementation)
     + [Client-side Implementation](#client-side-implementation)
     + [User Manual](#user-manual)
-+ [Development](#development)
-    + [Progress](#progress)
-    + [Add Certificates](#add-certificates)
-    + [**Submission**](#submission)
-    + [`Database` Usage](#database-usage)
-    + [Trouble-shooting](#trouble-shooting)
-        + [OpenSSL Environment Settings](#openssl-environment-settings)
-        + [Keys](#keys)
-        + [Client](#client)
-        + [Server](#server)
-    + [ToDos and References](#todos-and-references)
 
 ## Introduction
 
@@ -141,16 +116,21 @@ I am testing out the Linux-formatted `client` and `server` binary on [Karton](ht
 
 ### Certificates and Private Keys
 
-By default, you shall see a `certs/` directory listed in the root directory of the project. This directory contains the certificates and private keys used for the program so that you do not need to regenerate them on the first run.
+By default, you shall see a `certs/` directory listed in the root directory of the project (downloaded through [the release page](https://github.com/icheft/Secure-Person2Person-P2P-Micropayment-System/releases)). This directory contains the certificates and private keys used for the program so that you do not need to regenerate them on the first run.
 
 Since client's certificate and private keys will be generated in runtime, you'll only have to generate server's certificate and private key. The server's certificate and private key will be generated in the `certs/` directory.
 
-Use the following command if `server.crt` and `server.key` are missing in the `certs/` directory:
+Use the following command if `server.crt`, `server.key`, and `server.pem` are missing in the `certs/` directory (i.e. if you clone this repository):
 
 ```sh
-sh create_ca.sh cert server server # this will generate server.crt and server.key using the configuration file 
-sh create_ca.sh CA # this will generate a PEM file containing listed certificates 
+sh create_ca.sh cert server server # this will generate server.crt, server.key, and server.pem using the configuration file 
 ```
+
++ `server.crt`: the certificate of the server
++ `server.key`: the private key of the server
++ `server.pem`: the public key of the server
+
+Client's certificate (and public key) and private keys will be generated in the `certs/` directory in runtime, so when you download the released pack, you should see nothing. 
 
 ## Usage
 
@@ -164,171 +144,6 @@ sh create_ca.sh CA # this will generate a PEM file containing listed certificate
 ./client <SERVER_IP> <SERVER_PORT> [--verbose]
 ```
 
-### Running Server Program
-
-
-Before running the `client` program, you have to make sure that the `server` is running. You can start the server on port 8888 and limited to a maximum of three concurrent connected clients by running:
-
-```sh
-./server 8888 3
-```
-
-By default, the server should print everything verbosely. That is, it should print the encrypted message (in binaries, not readable) received from client(s). To suppress the encrypted message, you can pass in `--silent` or `-s` at the end:
-
-Here is a look of the above command:
-
-![Without silent mode](docs/img/2022-01-18-02-04-53.png){ width=80% }
-
-![With silent mode on](docs/img/2022-01-18-02-04-32.png){ width=80% }
-
-The basic usage is: `./server <SERVER_PORT> [CONCURRENT_USER_LIMIT] [--silent]`.
-
-And that is simply it. After running the server, you can choose to keep the database alive and whether it should reset the database with the prompt.
-
-You can have a glimpse of what is going on in the server by peeking into the `server.db` file via `sqlite3` simply by typing in:
-
-```sh
-sqlite3 server.db
-```
-
-and you shall get access to the database with a table named `client` that stores all user data, including users' connection states.
-
-So together with `sqlite3`, you will be able to gain access to the database and keep the server running at the same time:
-
-![Same concept as Phase 02's server](docs/img/2021-12-20-22-33-31.png)
-
-
-### Working Server
-
-The server will always throw out `[<CLIENT_MSG>] from <CLIENT_PORT>@<CLIENT_PUBLIC_PORT>` when a message is received from a client.
-
-If not in silent mode, the server will first show the encrypted message (not readble, just for clarification):
-
-![Server in default mode receiving [REGISTER#brian] from a client](docs/img/2022-01-18-02-05-33.png){ width=80% }
-
-You should see different encrypted message.
-
-#### When Clients Connect to Server
-
-When a client connects to the server, it will show IP address and port of that client. 
-
-The following screenshots show how three clients connect to the server listening on port 8888:
-
-![](docs/img/2022-01-18-02-17-06.png){ width=80%}
-
-![](docs/img/2022-01-18-02-16-41.png)
-
-The idea is pretty similar to Phase 02 implementation. 
-
-#### User Registration
-
-When a user registers, you shall also see an update directly within the database.
-
-![Same as the Phase 02 implementation](docs/img/2021-12-20-22-45-03.png)
-
-If a user already registered, the server will return `210 FAIL` to the client.
-
-#### User Login
-
-You see that the server recorded IP address, public port, private port (the port specified by the logged in client as shown in `[brian#57609]`).
-
-![Same as the Phase 02 implementation](docs/img/2021-12-20-22-47-06.png)
-
-I will log in with three users on three clients in the rest of the demonstration.
-
-#### Information Listing
-
-A user must log in before requesting for system information. A message `Please login first` will be sent to the client if the session is not logged in. 
-
-Otherwise, it will show the system information to the user as specified in the assignment specification.
-
-#### P2P Transaction
-
-As can be seen below, the `[brian#2000#ta]` message indicates that user `brian` transfers 2000 dollars to `ta`. 
-
-![](docs/img/2022-01-18-02-20-01.png)
-
-Before the transaction, the server will receive a `TRANSACTION` command from a client, this is due to the fact that the real transaction message (e.g. `[brian#2000#ta]`) can be implemented with higher form of encryption.
-
-Simply put, the server will receive two messages from the same client when a P2P transaction occurs.
-
-#### User Logout
-
-This is the same as shown in Phase 02 implementation. 
-
-There might be three cases:
-
-**When a user logs out**:  
-
-The server will prompt *who* logs out.
-
-![](docs/img/2021-12-20-23-06-18.png)
-
-**When a client exits properly**:  
-
-![](docs/img/2021-12-20-23-09-12.png)
-
-
-**When a client terminates suddenly (and returns a `SIGPIPE`)**:  
-
-This is not really possible since the client is well implemented. But if it does, server will handle:
-
-![](docs/img/2021-12-20-23-32-49.png)
-
-#### When Clients Exceed Thread Limit
-
-The server will notice and soon prompt that it has now detected more clients that it can handle. The client that triggers this action will have to wait until some other online users exit the server. The client will expect to see some "waiting". 
-
-This part has been properly shown in the demo session.
-
-### Terminating Server Program
-
-To terminate the server, you will have to `CTRL + C` while the server is running. Signal handling is implemented so that you can do it safely.
-
-The termination of the server will also cause the deletion of the db file `server.db` if you set the `Keep database alive` setting to `n` at the beginning of the process. 
-
-
-
-### Running Client Program
-
-For the client part, you can see most of the demos/screenshots in *Phase 01 User Manual*.
-
-If you are testing out the client program on your localhost:
-
-```sh
-./client 127.0.0.1 8888 [-v]
-```
-
-Otherwise, you will have to figure out the right server IP address and the port the server is listening on.
-
-The basic usage is: `./client <SERVER_IP> <SERVER_PORT> [--verbose]`.
-
-`-v` or `--verbose` will show the encrypted message. Since we do not want background information on the client side, by default, the client will not show the encrypted message.
-
-### Runtime Key Generation
-
-When you start a client program, by default, it will generate a pair of certificate and private key at runtime. 
-
-![](docs/img/2022-01-18-02-28-47.png)
-
-It will generate a random key pair and store the certificate and key under that key.
-
-![A pair of crt and key will be generated under `certs` directory](docs/img/2022-01-18-02-31-06.png){ width=40% }
-
-The `CA.pem` file will also be update using the example given from the [OpenSSL official documentation](https://www.openssl.org/docs/manmaster/man3/SSL_CTX_load_verify_locations.html).
-
-
-### Exiting Client Program
-
-You can exit a client using two methods: 
-
-1. Typing in `5` to *properly tell the server you are to exit* and quit the session peacefully, or
-2. Hitting `CTRL + C` to forcefully terminate the session; `server` will handle the error accordingly.
-
-
-When you exit the client program, the generated key and certificate will the specific ID will be deleted. `CA.pem` file will also be updated. 
-
-![](docs/img/2022-01-18-02-35-49.png)
 
 
 ## How to Compile
@@ -358,18 +173,17 @@ Run the client program by changing the `./client` to `./client_d` and `./server`
 
 ## Mechanism for Secure Transmission
 
-Say `alice pays 2000 to bob`, the transaction can be divided into following steps:
-
-1. alice generates transaction notification message `[alice#2000#bob]`
-2. alice encrypts the message with her own private key and sends the 256-byte ciphertext to bob
-3. bob receives the encrypted message, he will use alice's public key to decrypt the message
-4. bob now has the original message, he will now notify the server an incoming transaction message by sending a `TRANSACTION` message encrypted with his private key (*can be implemented to a less strict encryption than asymmetric encryption*)
-5. bob will then use his own private key to encrypt the original transaction message and sends another 256-byte ciphertext to the server
-6. server receives the encrypted message, it then decrypted the message with bob's public key (server will not have to check that the message is from alice to bob; bob has already checked that by decrypting the message with alice's public key)
-7. server will then return the transfer status message to alice encrypted with server's private key
-8. when alice receives the encrypted message, it can decrypt with server's pubilc key
-
-In general, the entire system is designed in the same fashion. 
++ public key will be sent to client when a client connect to a server
++ client will use the public key to encrypt the message and send it back to the server
++ server will use `private_decrypt` to decrypt the message with its private key
++ server will encrypt the message with its private key
++ server will send the message to the client, the client will have to use its public key to decrypt the message
++ transaction between peer A and peer B:
+    + if A wants to send a message to B
+    + A will encrypt the message with B's public key 
+    + A will send the message to B
+    + B will decrypt the message with its private key
+    + B will send the message to server, using server's public key to encrypt the message
 
 <!-- DONE -->
 
@@ -452,119 +266,3 @@ In general, the entire system is designed in the same fashion.
 + [Eisvogel](https://github.com/Wandmalfarbe/pandoc-latex-template) at <https://github.com/Wandmalfarbe/pandoc-latex-template>
 
 
-## Development
-
-### Progress
-
-+ public key will be sent to client when a client connect to a server
-+ client will use the public key to encrypt the message and send it back to the server
-+ server will use `private_decrypt` to decrypt the message with its private key
-+ server will encrypt the message with its private key
-+ server will send the message to the client, the client will have to use its public key to decrypt the message
-+ transaction between peer A and peer B:
-    + if A wants to send a message to B
-    + A will encrypt the message with B's public key 
-    + A will send the message to B
-    + B will decrypt the message with its private key
-    + B will send the message to server, using server's public key to encrypt the message
-
-### Add Certificates
-
-```sh
-sh create_ca.sh cert server/client <cert_key_name>
-sh create_ca.sh CA
-```
-
-### **Submission**
-
-```sh
-sh sub.sh <SID>
-```
-
-### `Database` Usage
-
-```cpp
-Database* db = new Database(true, true);
-cout << db->user_register("brian", "127.0.0.1") << endl;
-cout << db->user_login("brian", "127.0.0.1", 65312, 8888) << endl;
-cout << db->user_logout("127.0.0.1", 65313) << endl;
-cout << db->user_transaction("brian", "michael", 2000) << endl;
-
-auto online_users = db->list(); // online is true by default
-
-cout << "Online num: " << online_users.size() << endl;
-for (auto& user : online_users) {
-    cout << user.username << "#" << user.ip << "#" << user.private_port << endl;
-}
-cout << "\n";
-```
-
-```cpp
-#define REGISTER_OK 100
-#define REGISTER_FAIL 210
-
-#define LOGIN_SUCCESS 110
-#define LOGIN_AUTH_FAIL 220
-#define LOGIN_EXIST 230
-#define USER_NOT_LOGIN 240
-
-#define LOGOUT_SUCCESS 120
-#define LOGOUT_FAIL 250
-
-#define TRANSFER_OK 130
-#define TRANSFER_FAIL 260
-#define TRANSFER_SENDER_BANKRUPT 270
-
-#define QUERY_OK 300
-#define QUERY_ERROR 400
-
-```
-
-
-### Trouble-shooting
-
-#### OpenSSL Environment Settings
-
-+ macOS
-
-    ```sh
-    brew install openssl
-    brew link openssl # optional
-    ```
-
-    ```sh
-    If you need to have openssl@3 first in your PATH, run:
-        echo 'export PATH="/usr/local/opt/openssl@3/bin:$PATH"' >> ~/.zshrc
-
-    For compilers to find openssl@3 you may need to set:
-        export LDFLAGS="-L/usr/local/opt/openssl@3/lib"
-        export CPPFLAGS="-I/usr/local/opt/openssl@3/include"
-    ```
-+ Linux
-
-    ```sh
-    sudo apt-get install openssl
-    sudo apt-get install libssl-dev
-    ```
-
-#### Keys
-
-```sh
-openssl req -x509 -sha256 -nodes -days 365 -newkey rsa:2048 -keyout a.key -out a.crt
-# openssl req -x509 -nodes -days 365 -newkey rsa:1024 -keyout mycert.pem -out mycert.pem
-```
-
-#### Client 
-
-
-#### Server
-
-
-### ToDos and References
-
-+ OpenSSL
-    + [SSL socket 小攻略](https://hackmd.io/@J-How/B1vC_LmAD#FAQ)
-    + [OpenSSL 範例](http://neokentblog.blogspot.com/2012/10/openssl-ssl.html)
-    + [ssl server client programming using openssl in c](https://aticleworld.com/ssl-server-client-using-openssl-in-c/)
-    + [SSL 通道小攻略](https://hackmd.io/@G9IwPB5oTmOK_qFXzKABGg/rJkvqdgJ_#SSL通道小攻略)
-    + [Creating Keys](https://stackoverflow.com/questions/10175812/how-to-generate-a-self-signed-ssl-certificate-using-openssl)
