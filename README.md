@@ -244,7 +244,6 @@ Run the client program by changing the `./client` to `./client_d` and `./server`
 
 ### Client-side Implementation
 
-(from phase01)
 
 + Repositories
     + [Learn Network Protocol and Programming Using C](https://github.com/apsrcreatix/Socket-Programming-With-C) at <https://github.com/apsrcreatix/Socket-Programming-With-C>
@@ -261,7 +260,6 @@ Run the client program by changing the `./client` to `./client_d` and `./server`
 
 ### User Manual
 
-(from phase01)
 
 + [Eisvogel](https://github.com/Wandmalfarbe/pandoc-latex-template) at <https://github.com/Wandmalfarbe/pandoc-latex-template>
 
